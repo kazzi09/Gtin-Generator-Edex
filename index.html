@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GS1-128 Label Generator</title>
+  <script src="https://cdn.jsdelivr.net/npm/bwip-js@4.5.1/dist/bwip-js-min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --brand: #2563eb;
+      --brand-dark: #1d4ed8;
+      --brand-soft: #eff6ff;
+      --danger: #b91c1c;
+      --danger-soft: #fef2f2;
+      --radius: 14px;
+      --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 4px 16px rgba(16, 24, 40, .06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      background: linear-gradient(135deg, #1e40af, #2563eb);
+      color: #fff;
+      padding: 2rem 1rem 3.5rem;
+    }
+    .brand { display: flex; align-items: center; gap: 1rem; }
+    .logo { height: 56px; width: auto; background: #fff; border-radius: 10px; padding: 6px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    @media (max-width: 600px) { .logo { height: 44px; } }
+    .header-top {
+      max-width: 880px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;
+    }
+    header h1 { margin: 0; font-size: 1.6rem; font-weight: 700; letter-spacing: -.01em; }
+    header p { margin: .35rem 0 0; opacity: .85; font-size: .95rem; }
+    .lang {
+      display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
+      background: rgba(255,255,255,.15); border-radius: 10px; padding: .35rem .6rem;
+    }
+    .lang span { font-size: .85rem; opacity: .9; }
+    .lang select {
+      font-size: .95rem; padding: .35rem .5rem; border-radius: 8px; border: 0;
+      background: #fff; color: var(--text); cursor: pointer; outline: none;
+    }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 0 1rem; }
+    main.wrap { margin-top: -2.5rem; margin-bottom: 3rem; }
+    .card {
+      background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 1.5rem; margin-bottom: 1.25rem;
+    }
+    .step {
+      display: flex; align-items: center; gap: .6rem;
+      font-weight: 600; font-size: 1.05rem; margin: 0 0 .9rem;
+    }
+    .step .num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--brand-soft); color: var(--brand);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .9rem; font-weight: 700;
+    }
+    .hint { color: var(--muted); font-size: .9rem; margin: 0 0 1rem; }
+    code { background: #f1f5f9; padding: .1rem .35rem; border-radius: 6px; font-size: .85rem; }
+
+    .upload {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      border: 2px dashed #cbd5e1; border-radius: 12px; padding: 1rem 1.25rem;
+      transition: border-color .15s, background .15s;
+    }
+    .upload:hover { border-color: var(--brand); background: var(--brand-soft); }
+    .upload input[type=file] { font-size: .95rem; }
+    .upload input[type=file]::file-selector-button {
+      margin-right: .75rem; padding: .5rem 1rem; border: 0; border-radius: 8px;
+      background: var(--brand); color: #fff; font-weight: 600; cursor: pointer;
+    }
+    .upload input[type=file]::file-selector-button:hover { background: var(--brand-dark); }
+
+    .status { margin-top: .9rem; font-size: .92rem; }
+    .status.ok { color: #047857; }
+    .status.err {
+      color: var(--danger); background: var(--danger-soft);
+      border-radius: 10px; padding: .75rem 1rem; white-space: pre-wrap;
+    }
+
+    .search { position: relative; }
+    .search input {
+      width: 100%; font-size: 1rem; padding: .75rem 1rem .75rem 2.6rem;
+      border: 1px solid var(--line); border-radius: 10px; outline: none;
+      background: #fff; transition: border-color .15s, box-shadow .15s;
+    }
+    .search input:focus { border-color: var(--brand); box-shadow: 0 0 0 4px rgba(37,99,235,.15); }
+    .search input:disabled { background: #f8fafc; color: var(--muted); }
+    .search::before {
+      content: "⌕"; position: absolute; left: .9rem; top: 50%; transform: translateY(-50%);
+      color: var(--muted); font-size: 1.2rem;
+    }
+    .list {
+      margin-top: .6rem; border: 1px solid var(--line); border-radius: 10px;
+      max-height: 320px; overflow-y: auto;
+    }
+    .list:empty { display: none; }
+    .list .row {
+      display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+      padding: .7rem 1rem; cursor: pointer; border-bottom: 1px solid var(--line);
+    }
+    .list .row:last-child { border-bottom: 0; }
+    .list .row:hover { background: var(--brand-soft); }
+    .list .code { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .list .desc { color: var(--muted); font-size: .92rem; flex: 1; text-align: left; }
+
+    .badge {
+      font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+      padding: .2rem .55rem; border-radius: 999px; white-space: nowrap;
+    }
+    .badge.box { background: #fef3c7; color: #92400e; }
+    .badge.piece { background: #dcfce7; color: #166534; }
+    .badge.kg { background: #e0e7ff; color: #3730a3; }
+
+    #sel { display: none; }
+    #sel.show { display: block; }
+    .article {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;
+      background: var(--brand-soft); border: 1px solid #bfdbfe; border-radius: 12px; padding: 1rem 1.1rem;
+      margin-bottom: 1.1rem;
+    }
+    .article .title { font-weight: 700; font-size: 1.05rem; }
+    .article .meta { color: var(--muted); font-size: .9rem; margin-top: .2rem; }
+    .article .gtin { font-family: ui-monospace, Consolas, monospace; color: var(--text); }
+
+    .gen-row { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
+    .field label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .3rem; font-weight: 600; }
+    .field input {
+      width: 160px; font-size: 1.1rem; padding: .65rem .8rem; border: 1px solid var(--line);
+      border-radius: 10px; outline: none; font-variant-numeric: tabular-nums;
+    }
+    .field input:focus { border-color: var(--brand); box-shadow: 0 0 0 4px rgba(37,99,235,.15); }
+
+    .btn {
+      font-size: 1rem; font-weight: 600; padding: .72rem 1.4rem; border: 0; border-radius: 10px;
+      cursor: pointer; transition: background .15s, transform .05s;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover { background: var(--brand-dark); }
+    .btn-ghost { background: #fff; color: var(--text); border: 1px solid var(--line); }
+    .btn-ghost:hover { background: #f8fafc; }
+
+    .opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .opt-grid .field input { width: 100%; }
+    .opt-grid .field input[type=date] { font-family: inherit; }
+    .optional-tag { font-size: .75rem; font-weight: 600; color: var(--muted); background: #f1f5f9; border-radius: 6px; padding: .1rem .45rem; margin-left: .4rem; }
+    .sscc-out { margin-top: 1rem; }
+    #result:empty { display: none; }
+    #ssccResult:empty { display: none; }
+    .label-preview {
+      margin-top: 1.25rem; border: 1px solid var(--line); border-radius: 12px;
+      padding: 1.25rem; text-align: center; background: #fff;
+    }
+    .label-preview .enc {
+      font-family: ui-monospace, Consolas, monospace; font-size: .95rem; color: var(--muted);
+      margin-bottom: .9rem; word-break: break-all;
+    }
+    .label-preview canvas { max-width: 100%; height: auto; }
+    .err-box {
+      background: var(--danger-soft); color: var(--danger);
+      border-radius: 10px; padding: .75rem 1rem;
+    }
+    .actions { margin-top: 1rem; display: flex; justify-content: flex-end; }
+    #print[hidden] { display: none; }
+
+    .empty { text-align: center; color: var(--muted); padding: 1.5rem 0 .5rem; font-size: .95rem; }
+    footer { text-align: center; color: var(--muted); font-size: .8rem; padding-bottom: 2rem; }
+
+    @media print {
+      body { background: #fff; }
+      body * { visibility: hidden; }
+      .printable, .printable * { visibility: visible; }
+      .printable { position: absolute; left: 0; top: 0; width: 100%; margin: 0; }
+      .label-preview { border: 0; padding: 0; }
+    }
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.3rem; }
+      .header-top { flex-direction: column; }
+      .field input { width: 100%; }
+      .opt-grid { grid-template-columns: 1fr; }
+      .gen-row .btn { width: 100%; }
+      .list .desc { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-top">
+      <div class="brand">
+        <img class="logo" src="data:image/png;base64,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" alt="Edex Food">
+        <div>
+          <h1 data-i18n="title"></h1>
+          <p data-i18n="subtitle"></p>
+        </div>
+      </div>
+      <label class="lang">
+        <span data-i18n="language"></span>
+        <select id="lang">
+          <option value="en">English</option>
+          <option value="nl">Nederlands</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <div class="step"><span class="num">1</span> <span data-i18n="step1"></span></div>
+      <label class="upload">
+        <input type="file" id="file" accept=".csv,text/csv">
+      </label>
+      <div id="msg" class="status err" hidden></div>
+      <div id="info" class="status ok"></div>
+    </section>
+
+    <section class="card">
+      <div class="step"><span class="num">2</span> <span data-i18n="step2"></span></div>
+      <div class="search">
+        <input id="q" type="search" autocomplete="off" disabled>
+      </div>
+      <div class="list" id="list"></div>
+      <div id="empty" class="empty" data-i18n="emptyHint"></div>
+    </section>
+
+    <section class="card" id="sel">
+      <div class="step"><span class="num">3</span> <span data-i18n="step3"></span></div>
+
+      <div class="article">
+        <div>
+          <div class="title" id="selDesc"></div>
+          <div class="meta">
+            <span data-i18n="code"></span> <b id="selCode"></b> · GTIN <span class="gtin" id="selGtin"></span>
+          </div>
+        </div>
+        <span class="badge" id="selType"></span>
+      </div>
+
+      <div class="opt-grid">
+        <div class="field">
+          <label for="batch"><span data-i18n="batch"></span><span class="optional-tag" data-i18n="optional"></span></label>
+          <input id="batch" type="text" maxlength="20" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="bbd"><span data-i18n="bbd"></span><span class="optional-tag" data-i18n="optional"></span></label>
+          <input id="bbd" type="date">
+        </div>
+      </div>
+
+      <div class="gen-row">
+        <div class="field">
+          <label for="qty" id="qtyLabel" data-i18n="qty"></label>
+          <input id="qty" type="number" min="1" max="99999999" value="1">
+        </div>
+        <button id="gen" class="btn btn-primary" data-i18n="generate"></button>
+      </div>
+
+      <div id="result"></div>
+      <div class="actions">
+        <button id="print" class="btn btn-ghost" hidden onclick="window.print()" data-i18n="print"></button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="step"><span class="num">4</span> <span data-i18n="ssccTitle"></span></div>
+      <p class="hint" data-i18n="ssccHint"></p>
+      <div class="gen-row">
+        <div class="field" style="flex:1; min-width:220px">
+          <label for="sscc" data-i18n="ssccLabel"></label>
+          <input id="sscc" type="text" readonly style="width:100%; font-family: ui-monospace, Consolas, monospace;">
+        </div>
+        <button id="ssccGen" class="btn btn-primary" data-i18n="ssccGenerate"></button>
+      </div>
+      <div id="ssccResult" class="sscc-out"></div>
+      <div class="actions">
+        <button id="ssccPrint" class="btn btn-ghost" hidden onclick="window.print()" data-i18n="print"></button>
+      </div>
+    </section>
+  </main>
+
+  <footer data-i18n="footer"></footer>
+
+<script>
+  // ---------- Traduceri ----------
+  const T = {
+    en: {
+      title: 'GS1-128 Label Generator',
+      subtitle: 'Labels with AI (02) GTIN and (37) quantity',
+      language: 'Language',
+      step1: 'Load the database',
+      colsHint: 'Columns: <code>item_code</code> <code>gtin</code> <code>unit_type</code> <code>description</code> (unit_type = box or piece). Separator: comma or semicolon.',
+      step2: 'Search and select an item',
+      step3: 'Generate the label',
+      searchPlaceholder: 'Search by code or description...',
+      emptyHint: 'Load a CSV file to start searching.',
+      noResults: 'No items found.',
+      code: 'Code',
+      qty: 'Quantity (AI 37)',
+      generate: 'Generate',
+      print: 'Print',
+      footer: 'Data stays in your browser and is not sent anywhere.',
+      loaded: n => `✓ ${n} items loaded.`,
+      qtyInvalid: 'Invalid quantity (1–8 digits).',
+      renderError: m => `Error generating the barcode: ${m}`,
+      errNoHeader: 'The file must have a header and at least one row.',
+      errMissingCol: c => `Missing column "${c}".`,
+      errNoCode: 'item_code missing',
+      errUnit: v => `unit_type must be box or piece, not "${v}"`,
+      errGtinFormat: v => `Invalid GTIN (length/format): ${v}`,
+      errCheck: v => `Wrong check digit: ${v}`,
+      errRow: (r, m) => `Row ${r}: ${m}`,
+    },
+    nl: {
+      title: 'GS1-128 Etiketgenerator',
+      subtitle: 'Etiketten met AI (02) GTIN en (37) aantal',
+      language: 'Taal',
+      step1: 'Laad de database',
+      colsHint: 'Kolommen: <code>item_code</code> <code>gtin</code> <code>unit_type</code> <code>description</code> (unit_type = box of piece). Scheidingsteken: komma of puntkomma.',
+      step2: 'Zoek en selecteer een artikel',
+      step3: 'Genereer het etiket',
+      searchPlaceholder: 'Zoek op code of omschrijving...',
+      emptyHint: 'Laad een CSV-bestand om te beginnen met zoeken.',
+      noResults: 'Geen artikelen gevonden.',
+      code: 'Code',
+      qty: 'Aantal (AI 37)',
+      generate: 'Genereer',
+      print: 'Afdrukken',
+      footer: 'Gegevens blijven in uw browser en worden nergens naartoe gestuurd.',
+      loaded: n => `✓ ${n} artikelen geladen.`,
+      qtyInvalid: 'Ongeldig aantal (1–8 cijfers).',
+      renderError: m => `Fout bij het genereren van de barcode: ${m}`,
+      errNoHeader: 'Het bestand moet een kopregel en minstens één rij bevatten.',
+      errMissingCol: c => `Kolom "${c}" ontbreekt.`,
+      errNoCode: 'item_code ontbreekt',
+      errUnit: v => `unit_type moet box of piece zijn, niet "${v}"`,
+      errGtinFormat: v => `Ongeldige GTIN (lengte/formaat): ${v}`,
+      errCheck: v => `Onjuiste controlecijfer: ${v}`,
+      errRow: (r, m) => `Rij ${r}: ${m}`,
+    },
+  };
+
+  const EXTRA = {
+    en: {
+      optional: 'optional',
+      batch: 'Batch / lot (AI 10)',
+      bbd: 'Best before (AI 15)',
+      batchInvalid: 'Invalid batch. Use up to 20 letters, digits, - / or .',
+      ssccTitle: 'Pallet label SSCC (AI 00)',
+      ssccHint: 'Generates a random 18-digit SSCC with a valid check digit. For production, the number must start with your own GS1 company prefix, otherwise it may clash with other companies.',
+      ssccLabel: 'SSCC (AI 00)',
+      ssccGenerate: 'Generate SSCC',
+      qtyKg: 'Net weight in kg (AI 3103)',
+      weightInvalid: 'Invalid weight. Use up to 3 digits before and up to 3 decimals after the point, max 999.999 kg.',
+    },
+    nl: {
+      optional: 'optioneel',
+      batch: 'Batch / lot (AI 10)',
+      bbd: 'Te gebruiken tot (AI 15)',
+      batchInvalid: 'Ongeldige batch. Gebruik maximaal 20 letters, cijfers, - / of .',
+      ssccTitle: 'Palletlabel SSCC (AI 00)',
+      ssccHint: 'Genereert een willekeurige SSCC van 18 cijfers met geldig controlecijfer. Voor productie moet het nummer beginnen met uw eigen GS1-bedrijfsprefix, anders kan het botsen met andere bedrijven.',
+      ssccLabel: 'SSCC (AI 00)',
+      ssccGenerate: 'Genereer SSCC',
+      qtyKg: 'Nettogewicht in kg (AI 3103)',
+      weightInvalid: 'Ongeldig gewicht. Maximaal 3 cijfers voor de komma en 3 na de komma, max 999,999 kg.',
+    },
+  };
+  for (const l of Object.keys(EXTRA)) Object.assign(T[l], EXTRA[l]);
+
+  let lang = localStorage.getItem('lang') || 'en';
+  if (!T[lang] || lang === 'ro') lang = 'en';
+  const t = (k, ...a) => (typeof T[lang][k] === 'function' ? T[lang][k](...a) : T[lang][k]);
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-html]').forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
+    $('q').placeholder = t('searchPlaceholder');
+    $('batch').placeholder = 'L2411A';
+    $('lang').value = lang;
+    document.title = t('title');
+    if (current) setQtyMode(current);
+    if (items.length) {
+      $('info').textContent = t('loaded', items.length);
+      search();
+    }
+  }
+
+  // ---------- State & helpers ----------
+  // Baza de date încorporată (CSV)
+  const EMBEDDED_CSV = "item_code,gtin,unit_type,description\n1002-COLLI,03850291210315,box,Franck koffie JUBILARNA 400g\n1002-ST,03858881085596,piece,Franck koffie JUBILARNA 400g\n1003-COLLI,08600101521675,box,Don cafe 500g - Moment\n1003-ST,08605006908477,piece,Don cafe 500g - Moment\n1004-COLLI,08600103056267,box,Grand GOLD 500g\n1004-ST,08600103056250,piece,Grand GOLD 500g\n1005-COLLI,08606107862101,box,Minas koffie 250g\n1005-ST,08606107862019,piece,Minas koffie 250g\n1006-COLLI,08600103056045,box,Grand koffie GOLD 200g\n1006-ST,08600103056021,piece,Grand koffie GOLD 200g\n1008-COLLI,08606107862095,box,Minas koffie 500g\n1008-ST,08606107862026,piece,Minas koffie 500g\n1009-COLLI,08605006908484,box,Don caffe 500g - Minas\n1009-ST,08600101521248,piece,Don caffe 500g - Minas\n1010-COLLI,03870007414301,box,Zlatna dzezva koffie 200g\n1010-ST,03870007014303,piece,Zlatna dzezva koffie 200g\n1011-COLLI,03870007414233,box,Zlatna dzezva koffie 500g\n1011-ST,03870007014235,piece,Zlatna dzezva koffie 500g\n1016-COLLI,03870007412024,box,Espresso koffie 1 kg\n1016-ST,03870007012026,piece,Espresso koffie 1 kg\n1017-COLLI,05310233005143,box,Prince koffie 500g\n1017-ST,03904750980087,piece,Prince koffie 500g\n1018-COLLI,08605006908491,box,C kafa 500g\n1018-ST,08607100049087,piece,C kafa 500g\n1100-COLLI,03850104950568,box,Ajvar 350 g pittig Podravka\n1100-ST,03850104050565,piece,Ajvar 350 g pittig Podravka\n1101-COLLI,03850104950575,box,Ajvar 690 g pittig Podravka\n1101-ST,03850104050572,piece,Ajvar 690 g pittig Podravka\n1102-COLLI,03850104951022,box,Ajvar 350 g mild Podravka\n1102-ST,03850104051029,piece,Ajvar 350 g mild Podravka\n1105-COLLI,03850104951015,box,Ajvar 690 g mild Podravka\n1105-ST,03850104051012,piece,Ajvar 690 g mild Podravka\n1106-COLLI,09120018532049,box,Cornichons 720ml Natura\n1106-ST,09120018531837,piece,Cornichons 720ml Natura\n11061-COLLI,09120018536474,box,Cornichons 1700 ml NATURA\n11061-ST,09120018536467,piece,Cornichons 1700 ml NATURA\n11062-COLLI,09120018532926,box,AUGURKEN 720ml Natura\n11062-ST,09120018531806,piece,AUGURKEN 720ml Natura\n11063-COLLI,07610100534089,box,THOMY Majonese 265 g\n11063-ST,07610100034084,piece,THOMY Majonese 265 g\n11064-COLLI,03856015317322,box,ZVIJEZDA Mayonaise tradicional 400g\n11064-ST,03856015303684,piece,ZVIJEZDA Mayonaise tradicional 400g\n11065-COLLI,03856015316448,box,ZVIJEZDA Ketchup mild 500g\n11065-ST,03858882210874,piece,ZVIJEZDA Ketchup mild 500g\n11066-COLLI,03858882210034,box,ZVIJEZDA Zonnebloem olie 1L\n11066-ST,03858882210010,piece,ZVIJEZDA Zonnebloem olie 1L\n11067-COLLI,03858882210577,box,ZVIJEZDA Margarine 250g\n11067-ST,03858882210102,piece,ZVIJEZDA Margarine 250g\n11068-COLLI,03856015333902,box,Zvijezda margarine 250g\n11068-ST,03858882210102,piece,Zvijezda margarine 250g\n1107-COLLI,09120018532032,box,Cornichons 2500 ml NATURA\n1107-ST,09120018531844,piece,Cornichons 2500 ml NATURA\n1108-COLLI,09120018530779,box,Paprika filet geel 2500 ml NATURA\n1108-ST,09120018530557,piece,Paprika filet geel 2500 ml NATURA\n11086-COLLI,09120018534838,box,Paprika u pavlaci 700g Natura\n11086-ST,09120018534821,piece,Paprika u pavlaci 700g Natura\n11087-COLLI,09120018532148,box,Ajvar NATURA mild 370 ml\n11087-ST,09120018530748,piece,Ajvar NATURA mild 370 ml\n11088-COLLI,09120018532155,box,Ajvar NATURA hot 370 ml\n11088-ST,09120018531202,piece,Ajvar NATURA hot 370 ml\n11090-COLLI,09120018530595,box,Ajvar 340 g mild - NATURA BiH\n11090-ST,09120018530489,piece,Ajvar 340 g mild - NATURA BiH\n11092-COLLI,09120018531417,box,Ajvar 580 ml pittig - Natura\n11092-ST,09120018530854,piece,Ajvar 580 ml pittig - Natura\n11093-COLLI,09120018531400,box,Ajvar 580 ml mild - Natura\n11093-ST,09120018530731,piece,Ajvar 580 ml mild - Natura\n11095-COLLI,09120018531226,box,Ajvar 720ml pittig - Natura\n11095-ST,09120018530618,piece,Ajvar 720ml pittig - Natura\n1111-COLLI,01531999017780,box,Ajvar 580 ML mild - Vipro\n1111-ST,05319990177889,piece,Ajvar 580 ML mild - Vipro\n1112-COLLI,01531999017797,box,Ajvar 580 ML pittig - Vipro\n1112-ST,05319990177926,piece,Ajvar 580 ML pittig - Vipro\n11120-COLLI,09120018536733,box,Lutenica 550g amfora -NATURA\n11120-ST,09120018536726,piece,Lutenica 550g amfora -NATURA\n1114-COLLI,05319991876569,box,NATURA Rote Kirschpaprika 470g\n1114-ST,09120018536900,piece,NATURA Rote Kirschpaprika 470g\n1115-COLLI,05319991876606,box,NATURA Gelbe Kirschpaprika 470g\n1115-ST,09120018536924,piece,NATURA Gelbe Kirschpaprika 470g\n11173-KG,09120133701634,kg,Zuurkool vacuüm - MEZZA ca. 1.8kg\n1122-COLLI,09120018534937,box,Natura - Tetovac witte bonen 900g\n1122-ST,03800225661744,piece,Natura - Tetovac witte bonen 900g\n1123-COLLI,09120018534944,box,Natura - Sareni grah 900 g\n1123-ST,03800225661775,piece,Natura - Sareni grah 900 g\n1124-COLLI,01531999017759,box,Lutenica 580ml - Vipro\n1124-ST,05319990177599,piece,Lutenica 580ml - Vipro\n1125-COLLI,09120018538003,box,SOMBORKA paprika in Olie 2500ml\n1125-ST,09120018537990,piece,SOMBORKA paprika in Olie 2500ml\n1128-COLLI,09120018534173,box,NATURA Zuurkool blad 1700 ml\n1128-ST,09120018534166,piece,NATURA Zuurkool blad 1700 ml\n1131-COLLI,09120018533169,box,Somborka met zuurkool 2500ml-Natura\n1131-ST,09120018532919,piece,Somborka met zuurkool 2500ml-Natura\n1132-COLLI,09120018530762,box,Tomaten paprika 2500ml Natura\n1132-ST,09120018530540,piece,Tomaten paprika 2500ml Natura\n11321-COLLI,09120018533374,box,Somborka paprika 2500ml NATURA\n11321-ST,09120018533336,piece,Somborka paprika 2500ml NATURA\n1133-COLLI,09120018531042,box,Paprika filet geel 720 ml Natura\n1133-ST,09120018531035,piece,Paprika filet geel 720 ml Natura\n1134-COLLI,09120018533053,box,Somborka met zuurkool 720ml -Natura\n1134-ST,09120018532957,piece,Somborka met zuurkool 720ml -Natura\n1137-COLLI,09120018536306,box,Paprika gegrild 1500 ml NATURA\n1137-ST,09120018536290,piece,Paprika gegrild 1500 ml NATURA\n11371-COLLI,09120018530861,box,Paprika gegrild 680g NATURA\n11371-ST,09120018530649,piece,Paprika gegrild 680g NATURA\n1139-COLLI,08717371001124,box,Salat mix 720ml - Natura\n1139-ST,09120018531158,piece,Salat mix 720ml - Natura\n1140-COLLI,08717371000233,box,MEZZA Zuurkool bladeren 1700ml\n1140-ST,08717371002886,piece,MEZZA Zuurkool bladeren 1700ml\n1143-COLLI,09120018532681,box,Rode bieten 720 ml NATURA\n1143-ST,09120018532650,piece,Rode bieten 720 ml NATURA\n1153-COLLI,09120018534920,box,Tomatenpaprika met zuurkool 720ml Natura\n1153-ST,09120018532964,piece,Tomatenpaprika met zuurkool 720ml Natura\n11531-COLLI,09120018531028,box,Apfel paprika 720ml Natura\n11531-ST,09120018533657,piece,Apfel paprika 720ml Natura\n1154-COLLI,09120018532063,box,Salat mix 2500ml NATURA\n1154-ST,09120018531790,piece,Salat mix 2500ml NATURA\n1161-COLLI,09120018538881,box,Natura Tursija 2500ml\n1161-ST,09120018538874,piece,Natura Tursija 2500ml\n1163-COLLI,09120018534876,box,Pfefferoni Scharf 370ml Natura\n1163-ST,09120018534869,piece,Pfefferoni Scharf 370ml Natura\n1168-COLLI,09120018532629,box,Pfefferoni scharf 720ml Natura\n1168-ST,09120018532407,piece,Pfefferoni scharf 720ml Natura\n1169-COLLI,09120018532612,box,Pfefferoni mild 720ml Natura\n1169-ST,09120018532391,piece,Pfefferoni mild 720ml Natura\n1170-COLLI,08606011030054,box,Ajvar 550g MILD - Granny's Secret\n1170-ST,08600103831949,piece,Ajvar 550g MILD - Granny's Secret\n1171-COLLI,08606011033215,box,Ajvar 550g HOT- Granny's Secret\n1171-ST,08606102785542,piece,Ajvar 550g HOT- Granny's Secret\n1172-COLLI,08606018020034,box,Ajvar 200g mild - Granny's Secret\n1172-ST,08606018020027,piece,Ajvar 200g mild - Granny's Secret\n1173-COLLI,08606018020058,box,Ajvar 200g pittig- Granny's Secret\n1173-ST,08606018020041,piece,Ajvar 200g pittig- Granny's Secret\n1175-COLLI,09120018537587,box,Malidzano 540 g NATURA\n1175-ST,09120018537570,piece,Malidzano 540 g NATURA\n1176-COLLI,05310146002703,box,Mamas Ajvar 550 ml - mild\n1176-ST,05310146002611,piece,Mamas Ajvar 550 ml - mild\n11761-COLLI,05310146002710,box,MAMA'S Ajvar 550 ml - pittig\n11761-ST,05310146002628,piece,MAMA'S Ajvar 550 ml - pittig\n11762-COLLI,05310146005391,box,Mama's huisgemaakte gebakken bonen 550g\n11762-ST,05310146004950,piece,Mama's huisgemaakte gebakken bonen 550g\n1177-COLLI,05310146002727,box,MAMA'S Ajvar 290 ml mild\n1177-ST,05310146002635,piece,MAMA'S Ajvar 290 ml mild\n11771-COLLI,05310146002734,box,MAMA'S Ajvar 290 ml - HOT\n11771-ST,05310146002642,piece,MAMA'S Ajvar 290 ml - HOT\n1181-COLLI,09120018531721,box,Paprika filet rood 720 ml -Natura\n1181-ST,09120018531738,piece,Paprika filet rood 720 ml -Natura\n1182-COLLI,09120018530755,box,Paprika filet rood 2500ml-Natura\n1182-ST,09120018530533,piece,Paprika filet rood 2500ml-Natura\n1183-COLLI,09120018533312,box,Appel pap. met zuurkool 2500ml Natura\n1183-ST,09120018533305,piece,Appel pap. met zuurkool 2500ml Natura\n12009-COLLI,18994963002739,box,5 PACK Indomie SHRIMP\n12009-ST,08994963002176,piece,5 PACK Indomie SHRIMP\n1201-COLLI,03856020280529,box,Groentesoep met noodles 58g Podravka\n1201-ST,03856020255770,piece,Groentesoep met noodles 58g Podravka\n12021-COLLI,18994963002722,box,5 PACK IndoMie CHICKEN\n12021-ST,08994963002831,piece,5 PACK IndoMie CHICKEN\n12022-COLLI,08606108584156,box,5 PACK IndoMie BEEF\n12022-ST,00089686170085,piece,5 PACK IndoMie BEEF\n12023-COLLI,18994963003132,box,5 PACK IndoMie VEGETABLE\n12023-ST,08994963003173,piece,5 PACK IndoMie VEGETABLE\n12024-COLLI,18994963003149,box,5 PACK IndoMie SPECIAL CHICKEN\n12024-ST,08994963003166,piece,5 PACK IndoMie SPECIAL CHICKEN\n12026-COLLI,18994963000155,box,5 PACK IndoMie MI GORENG\n12026-ST,08994963002817,piece,5 PACK IndoMie MI GORENG\n12029-COLLI,18992388134431,box,EAT & JOY Original Fried noodle CUP 70g\n1203-COLLI,03856020262969,box,DOMACA MESNA soep 62g *Podravka\n1203-ST,03850104003448,piece,DOMACA MESNA soep 62g *Podravka\n12031-COLLI,18992388134592,box,GURIMI CUP chicken noodle 60g\n12031-ST,08992388134885,piece,GURIMI CUP chicken noodle 60g\n12040-COLLI,18992388134394,box,EAT & JOY Super spicy Fried bag 5-pack\n12040-ST,08992388134625,piece,EAT & JOY Super spicy Fried bag 5-pack\n12041-COLLI,18992388134110,box,GURIMI Chicken Noodle bag 5-pack\n12041-ST,08992388134120,piece,GURIMI Chicken Noodle bag 5-pack\n12043-COLLI,18992388134202,box,GURIMI Vegetable bag 5-pack\n12043-ST,08992388134243,piece,GURIMI Vegetable bag 5-pack\n12044-COLLI,18992388134127,box,GURIMI Mi Goreng bag 5-pack\n12044-ST,08992388134144,piece,GURIMI Mi Goreng bag 5-pack\n1205-COLLI,03850104401305,box,RUNDERSOEP 65 g Podravka\n1205-ST,03850104003134,piece,RUNDERSOEP 65 g Podravka\n1206-COLLI,03850104401336,box,KIPPENSOEP 62 g. Podravka\n1206-ST,03850104003189,piece,KIPPENSOEP 62 g. Podravka\n1210-COLLI,03850104401756,box,SVATOVSKA soep 58 g\n1210-ST,03850104004964,piece,SVATOVSKA soep 58 g\n1211-COLLI,03870007463071,box,KIPPENSOEP Vispak\n1211-ST,03870007063073,piece,KIPPENSOEP Vispak\n1212-COLLI,03870007463446,box,Tarhana soep 60g. Vispak\n1212-ST,03870007063448,piece,Tarhana soep 60g. Vispak\n12123-COLLI,03870007463354,box,Sarajevska corba -Vispak\n12123-ST,03870007063172,piece,Sarajevska corba -Vispak\n12124-COLLI,03870007463439,box,Begova corba -soep Vispak\n12124-ST,03870007063431,piece,Begova corba -soep Vispak\n12125-COLLI,03870007464283,box,Domaca corba Vispak.\n12125-ST,03870007064285,piece,Domaca corba Vispak.\n12127-COLLI,03870007064148,box,Posna juha 52g ----- Vispak\n12127-ST,03870007064117,piece,Posna juha 52g ----- Vispak\n12129-COLLI,03870007463323,box,Juha sa gris 52g - Vispak\n12129-ST,03870007063325,piece,Juha sa gris 52g - Vispak\n1213-COLLI,03870007464351,box,TAJNA GRILL 40g\n1213-ST,03870007064353,piece,TAJNA GRILL 40g\n12130-COLLI,03870007464344,box,TAJNA Roasted chicken 40g\n12130-ST,03870007064346,piece,TAJNA Roasted chicken 40g\n12131-COLLI,03870007464245,box,TAJNA Gulas i paprikas 60g *\n12131-ST,03870007064247,piece,TAJNA Gulas i paprikas 60g *\n12132-COLLI,03870007464252,box,TAJNA Cevapi i pljeskavice 40g\n12132-ST,03870007064254,piece,TAJNA Cevapi i pljeskavice 40g\n12133-COLLI,03870007464269,box,TAJNA Grah i variva 60g *\n12133-ST,03870007064261,piece,TAJNA Grah i variva 60g *\n12134-COLLI,03870007464191,box,TAJNA Punjene paprike 50g *\n12134-ST,03870007064193,piece,TAJNA Punjene paprike 50g *\n1214-COLLI,03850104405532,box,FANT cevapcici en hamburgers 40g\n1214-ST,03850104018237,piece,FANT cevapcici en hamburgers 40g\n1216-COLLI,03850104405921,box,FANT goulash en paprikash 65g\n1216-ST,03850104075537,piece,FANT goulash en paprikash 65g\n1218-COLLI,03850104405631,box,FANT gevulde paprika 60 g\n1218-ST,03850104075513,piece,FANT gevulde paprika 60 g\n1221-COLLI,09120018538430,box,VERDURA kruidenmix 500g\n1221-ST,09120018538423,piece,VERDURA kruidenmix 500g\n1224-COLLI,03850104951305,box,Vegeta 250g\n1224-ST,03850104008597,piece,Vegeta 250g\n1226-COLLI,03850104951336,box,Vegeta 500g\n1226-ST,03850104008443,piece,Vegeta 500g\n1228-COLLI,03850104959233,box,Vegeta 1 kg\n1228-ST,03850104047046,piece,Vegeta 1 kg\n1230-COLLI,05901315054830,box,Vegeta 200 G ZAKJE\n1230-ST,05904353039340,piece,Vegeta 200 G ZAKJE\n12302-ST,03850104962448,piece,Vegeta emmer 5 kg\n1233-COLLI,03870007473001,box,Paprika poeder 100g mild - Vispak\n1233-ST,03870007073003,piece,Paprika poeder 100g mild - Vispak\n12343-COLLI,18007990404961,box,HULALA Whipping Classic 500ml\n12343-ST,08007990404964,piece,HULALA Whipping Classic 500ml\n1240-COLLI,03850104312007,box,Vegeta BIO 120g\n1240-ST,03856020245337,piece,Vegeta BIO 120g\n1245-COLLI,09120133701658,box,Karamell Farsitura 850g NATURA\n1245-ST,09120133701641,piece,Karamell Farsitura 850g NATURA\n12501-COLLI,09120018533602,box,NATURA Palenta GROF 1000g\n12501-ST,09120018533596,piece,NATURA Palenta GROF 1000g\n12502-COLLI,09120018533589,box,NATURA Palenta FIJN 1kg\n12502-ST,09120018533572,piece,NATURA Palenta FIJN 1kg\n12511-COLLI,09120018533671,box,NATURA MAis meel 1000g\n12511-ST,09120018533664,piece,NATURA MAis meel 1000g\n1252-COLLI,03870004000095,box,KLAS Zlatni puder 1kg-\n1252-ST,03870004000019,piece,KLAS Zlatni puder 1kg-\n12520-COLLI,03870004020024,box,KLAS Tip 500 5kg- meel\n12520-ST,03870004000392,piece,KLAS Tip 500 5kg- meel\n1253-COLLI,03870004000057,box,KLAS Zlatni puder 2 kg MEEL\n1253-ST,03870004000040,piece,KLAS Zlatni puder 2 kg MEEL\n12531-COLLI,03870004000354,box,KLAS- TIP 500 Tarwe meel 1kg\n12531-ST,03870004000347,piece,KLAS- TIP 500 Tarwe meel 1kg\n12532-COLLI,03870004000361,box,KLAS TIP 550 Meel - 2kg\n12532-ST,03870004000378,piece,KLAS TIP 550 Meel - 2kg\n12534-ST,03870004020048,piece,KLAS Zlatni puder 5kg- meel\n12537-COLLI,03877002219177,box,MAIS MEEL 1 KG Poljorad\n12537-ST,03870101000752,piece,MAIS MEEL 1 KG Poljorad\n1254-COLLI,03870004028105,box,KLAS Pasta -TAGLIATELLE 400g\n1254-ST,03870004002907,piece,KLAS Pasta -TAGLIATELLE 400g\n12540-COLLI,03879000067866,box,BRASKO Domaca Tarhana 400g\n12540-ST,03879000067804,piece,BRASKO Domaca Tarhana 400g\n12541-COLLI,03879000067873,box,BRASKO Tarhana sa povrcem 400g\n12541-ST,03879000067811,piece,BRASKO Tarhana sa povrcem 400g\n12542-COLLI,13879000067870,box,Brasko Domaca povrtna trahana 70g\n12542-ST,03879000067873,piece,Brasko Domaca povrtna trahana 70g\n12543-COLLI,13879000067887,box,Brasko Domaca paradajz Trahana 70g\n12543-ST,03879000067880,piece,Brasko Domaca paradajz Trahana 70g\n12544-COLLI,13879000067894,box,Brasko Domaca Chili Trahana 70g\n12544-ST,03879000067897,piece,Brasko Domaca Chili Trahana 70g\n1255-COLLI,03870004028112,box,KLAS FIDELINI -Vermicelli 400g\n1255-ST,03870004001177,piece,KLAS FIDELINI -Vermicelli 400g\n12551-COLLI,03870004028808,box,KLAS Macaroni - LUMACHE 400g\n12551-ST,03870004028723,piece,KLAS Macaroni - LUMACHE 400g\n12552-COLLI,03870004028785,box,KLAS Macaroni - TORTIGLIONI 400g\n12552-ST,03870004028747,piece,KLAS Macaroni - TORTIGLIONI 400g\n12553-COLLI,03870004028433,box,KLAS Pasta - PAPPARDELLE 400g\n12553-ST,03870004002556,piece,KLAS Pasta - PAPPARDELLE 400g\n1257-COLLI,03870004011763,box,Jufka- paster. KLAS 500g\n1257-ST,08717371003067,piece,Jufka- paster. KLAS 500g\n1258-COLLI,03870004034663,box,Jufka- vers KLAS - 500g\n1258-ST,03870004034342,piece,Jufka- vers KLAS - 500g\n12582-COLLI,05425005720022,box,JUFKA Au Ble d'or 470g\n12582-ST,05425005720015,piece,JUFKA Au Ble d'or 470g\n1261-COLLI,03870009001400,box,Zout-Tuzlanska So 1kg\n1261-ST,03870009000014,piece,Zout-Tuzlanska So 1kg\n1273-KG,93830008931156,kg,Sir LIVADA -kaas ca. 400g\n1274-COLLI,08717371005672,box,KATUN Mladi Kajmak 200 gr\n1274-ST,08717371005504,piece,KATUN Mladi Kajmak 200 gr\n12741-COLLI,08717371000349,box,KATUN Paprika u pavlaci 500g\n12741-ST,08717371000356,piece,KATUN Paprika u pavlaci 500g\n1275-COLLI,03870101000592,box,POLJORAD Kajmak 200g Roomkaas\n1275-ST,03870101000257,piece,POLJORAD Kajmak 200g Roomkaas\n1276-COLLI,03859888858428,box,ABC Roomkaas 200g\n1276-ST,03859888858336,piece,ABC Roomkaas 200g\n1277-COLLI,03877002219412,box,Poljorad gerookte kaas 300g\n1277-ST,03877002219405,piece,Poljorad gerookte kaas 300g\n1279-COLLI,09120018536030,box,DIMKO rookkaas 400g Poljorad\n1279-ST,03870101000493,piece,DIMKO rookkaas 400g Poljorad\n12791-COLLI,03870101000646,box,Kashkaval kaas 400g Poljorad\n12791-ST,03870101000240,piece,Kashkaval kaas 400g Poljorad\n12792-COLLI,03870101000776,box,Paprika sa kajmakom 500g Poljorad\n12792-ST,03870101000219,piece,Paprika sa kajmakom 500g Poljorad\n12794-COLLI,08717371001025,box,KATUN Kajmak 900g\n12794-ST,08717371001018,piece,KATUN Kajmak 900g\n1281-COLLI,08717371001032,box,KATUN 400g Mladi Kajmak\n1281-ST,08717371001049,piece,KATUN 400g Mladi Kajmak\n1282-COLLI,08718164544811,box,KATUN Travnicki kaas 800g\n1282-ST,08717371000776,piece,KATUN Travnicki kaas 800g\n1286-COLLI,08718164547201,box,KATUN Mediterranean white 800g\n1286-ST,08717371000332,piece,KATUN Mediterranean white 800g\n12861-COLLI,08718164547270,box,KATUN Mediterranean white 400g\n12861-ST,08717371000387,piece,KATUN Mediterranean white 400g\n1287-COLLI,08718164544835,box,KATUN GOAT- geiten kaas 400g\n1287-ST,08717371000370,piece,KATUN GOAT- geiten kaas 400g\n1288-COLLI,08718164544842,box,KATUN Schapen kaas 400g OVCIJI\n1288-ST,08717371000769,piece,KATUN Schapen kaas 400g OVCIJI\n1301-COLLI,09120018531370,box,Cajna Brajlovic 300g\n1301-ST,09120018530465,piece,Cajna Brajlovic 300g\n13013-COLLI,09120133700361,box,Runder RAMSTEK gesneden 70g Brajlovic\n13013-ST,09120133700354,piece,Runder RAMSTEK gesneden 70g Brajlovic\n13014-COLLI,09120133700347,box,Gerookte rundernek gesneden 70g Brajlov\n13014-ST,09120133700330,piece,Gerookte rundernek gesneden 70g Brajlov\n1303-COLLI,03830042435273,box,PEPI kippen worst 400g\n1303-ST,03830042432272,piece,PEPI kippen worst 400g\n13031-COLLI,09120018534128,box,PILKO kipknakworst 600g- BRAJLOVIC\n13031-ST,09120018534241,piece,PILKO kipknakworst 600g- BRAJLOVIC\n1304-COLLI,03831006616035,box,PIVKA kipknakworst 600g\n1304-ST,03831006616004,piece,PIVKA kipknakworst 600g\n13041-COLLI,09120018534302,box,PILKO kip worst 400g- BRAJLOVIC\n13041-ST,09120018534142,piece,PILKO kip worst 400g- BRAJLOVIC\n1305-COLLI,03831006680234,box,Coktail worstjes 500g PIVKA\n1305-ST,03831006619593,piece,Coktail worstjes 500g PIVKA\n1307-COLLI,08717371000868,box,MEZZA SLICE KIPWORST met paprika135g\n1307-ST,08717371000851,piece,MEZZA SLICE KIPWORST met paprika135g\n13071-COLLI,08717371000882,box,MEZZA SLICE kipworst met rundvlees135g\n13071-ST,08717371000875,piece,MEZZA SLICE kipworst met rundvlees135g\n13072-COLLI,08717371000844,box,MEZZA SLICE kipfilet ovengebraden135g\n13072-ST,08717371000837,piece,MEZZA SLICE kipfilet ovengebraden135g\n13073-COLLI,08717371000820,box,MEZZA SLICE Kalfs bacon 135g\n13073-ST,08717371000813,piece,MEZZA SLICE Kalfs bacon 135g\n1308-COLLI,08717371000226,box,MEZZA Grill Runderworst 500g\n1308-ST,08717371000455,piece,MEZZA Grill Runderworst 500g\n1310-COLLI,03831006685192,box,PIVKA Gerookte kipfilet 350g\n1310-ST,03831006619333,piece,PIVKA Gerookte kipfilet 350g\n1311-COLLI,03831006683846,box,Njami kipknakworst 200g PIVKA*\n1311-ST,03831006601598,piece,Njami kipknakworst 200g PIVKA*\n1312-COLLI,03831006686588,box,CLASSIC kipknack worst 220g PIVKA*\n1312-ST,03831006614826,piece,CLASSIC kipknack worst 220g PIVKA*\n1313-COLLI,03831006684980,box,Barbique kippenworst 400 g PIVKA\n1313-ST,03831006605176,piece,Barbique kippenworst 400 g PIVKA\n1314-COLLI,03831006616110,box,PIVKA grill kippennworst 340 g\n1314-ST,03831006616080,piece,PIVKA grill kippennworst 340 g\n1315-COLLI,09120018531387,box,Kraiska ljuta Brajlovic 300g*PRIJS\n1315-ST,09120018530960,piece,Kraiska ljuta Brajlovic 300g*PRIJS\n1317-COLLI,03838977123012,box,POLI kippenworst 500g\n1317-ST,03838977014051,piece,POLI kippenworst 500g\n13170-COLLI,03838977135275,box,POLIDOG 330g *PRIJS\n13170-ST,08717371001117,piece,POLIDOG 330g *PRIJS\n13172-COLLI,03838977134551,box,POLI - COCTAIL knakworst 330g\n13172-ST,03838977034554,piece,POLI - COCTAIL knakworst 330g\n13175-COLLI,03838977114201,box,Perutnina EXTRA knakworst 200g\n13175-ST,03838977014204,piece,Perutnina EXTRA knakworst 200g\n13176-COLLI,03838977210859,box,Poli mini kippenworst 220g\n13176-ST,03838977010855,piece,Poli mini kippenworst 220g\n13179-COLLI,03838977133387,box,Perutnina Gala Kippenworst 400g\n13179-ST,03838977033380,piece,Perutnina Gala Kippenworst 400g\n1318-COLLI,09120018531349,box,Sarajevska 300g Brajlovic\n1318-ST,09120018530977,piece,Sarajevska 300g Brajlovic\n1321-COLLI,09120133700729,box,Gerookte Schapenvlees 350g Brajlovic\n1321-KG,02724484003545,kg,Gerookte Schapenvlees 350g Brajlovic\n1322-KG,09120133700262,kg,Runderrook ribben ca. 350g - Brajlovic\n13221-COLLI,08717371001056,box,MEZZA Govedja rebra\n13221-KG,08717371004507,kg,MEZZA Govedja rebra\n1323-COLLI,93830041600149,box,MEZZA Suho meso PREMIUM ca.500g\n1323-KG,02624445004782,kg,MEZZA Suho meso PREMIUM ca.500g\n1324-COLLI,03830042432531,box,Bosna Sudzuk Knoflook 400 g MEZZA\n1324-ST,03830042432500,piece,Bosna Sudzuk Knoflook 400 g MEZZA\n13242-COLLI,03830042432517,box,Bosna Sudzuk 400g MEZZA\n13242-ST,08717371001070,piece,Bosna Sudzuk 400g MEZZA\n1325-COLLI,09120018535477,box,Sudzuk BRAJLOVIC 400g\n1325-ST,09120018530274,piece,Sudzuk BRAJLOVIC 400g\n1326-COLLI,09120018530335,box,Sudzuk met knoflook 300 gr Brajlovic\n1326-ST,09120018530922,piece,Sudzuk met knoflook 300 gr Brajlovic\n1327-COLLI,08717371000141,box,Bosna sudzuk PREMIUM 450g MEZZA\n1327-ST,08717371000288,piece,Bosna sudzuk PREMIUM 450g MEZZA\n13271-COLLI,03830042433491,box,Mezza Bosna sudzuk  250g\n13271-ST,03830042430490,piece,Mezza Bosna sudzuk  250g\n1328-KG,02719395003241,kg,Suho meso knoflook Brajlovic ca.250g\n1329-KG,99120018530116,kg,Suho meso BRAJLOVIC ca.300g\n13290-KG,09120133700255,kg,Domace Suho meso knoflook 300g Brajlovic\n13292-KG,09120018538348,kg,Domace Suho meso 350g BRAJLOVIC\n13294-KG,09120133700095,kg,Ramstek-Premium steak 400g BRAJLOVIC\n13297-KG,09120133700811,kg,Govedji Vrat- Coppa 600g BRAJLOVIC\n13298-KG,09120133700736,kg,Schapen ham-Ovciji but 400g BRAJLOVIC\n1331-COLLI,03831006686120,box,Tirolska 500g PIVKA*\n1331-ST,03831006612242,piece,Tirolska 500g PIVKA*\n1332-COLLI,03831006686144,box,Ekstra kippenworst 800g PIVKA\n1332-ST,03831006614789,piece,Ekstra kippenworst 800g PIVKA\n1333-COLLI,03831006686113,box,PIVKA Chicken special salami 800g\n1333-ST,03831006618831,piece,PIVKA Chicken special salami 800g\n1334-COLLI,03831006686083,box,Pileci narezak 400g Pivka *\n1334-ST,03831006602373,piece,Pileci narezak 400g Pivka *\n1335-COLLI,03838977147322,box,PERUTNINA Extra 800g\n1335-ST,03838977010800,piece,PERUTNINA Extra 800g\n13350-COLLI,03838977147315,box,Perutnina EXTRA 350g\n13350-ST,03838977013382,piece,Perutnina EXTRA 350g\n13351-COLLI,03858888590093,box,Zdenka smeerkaas Classic 140g\n13351-ST,03858888599331,piece,Zdenka smeerkaas Classic 140g\n13352-COLLI,03858888591106,box,Zdenka smeerkaas Cardas 140g\n13352-ST,03858888590109,piece,Zdenka smeerkaas Cardas 140g\n1381-COLLI,03830042433859,box,KOSOVA SUXHUK 500g MEZZA\n1381-ST,03830042430858,piece,KOSOVA SUXHUK 500g MEZZA\n1383-COLLI,09120018530939,box,Mirusha SKENDERBEU 500g\n1383-ST,09120018530915,piece,Mirusha SKENDERBEU 500g\n1384-COLLI,09120133701870,box,SHTEPIAK pikant 800g MIRUSHA\n1384-ST,09120018530892,piece,SHTEPIAK pikant 800g MIRUSHA\n1385-COLLI,09120018539642,box,MIRUSHA Suxhuk mild 2x450gr\n1385-ST,09120018534012,piece,MIRUSHA Suxhuk mild 2x450gr\n1500-COLLI,03838471039901,box,Argeta JUNIOR 95g\n1500-ST,03838975566514,piece,Argeta JUNIOR 95g\n15001-COLLI,03838471039291,box,Argeta TONIJN 95g\n15001-ST,03838975566569,piece,Argeta TONIJN 95g\n15004-COLLI,03838471044936,box,Argeta Picant TONIJN 95g\n15004-ST,03838471044929,piece,Argeta Picant TONIJN 95g\n15007-COLLI,03838471039536,box,Argeta HARISSA 95g - Halal\n15007-ST,03838471030137,piece,Argeta HARISSA 95g - Halal\n15011-COLLI,03838471039949,box,Argeta JUNIOR - HALAL 95g\n15011-ST,03838471033428,piece,Argeta JUNIOR - HALAL 95g\n15016-COLLI,03838471039499,box,Argeta PICANT 95 g\n15016-ST,03838471007504,piece,Argeta PICANT 95 g\n1502-COLLI,03838471039253,box,Argeta KIP 95g\n1502-ST,03838975566507,piece,Argeta KIP 95g\n15022-COLLI,03838471046282,box,Argeta PIKANT HALAL 95g\n15022-ST,03838471045940,piece,Argeta PIKANT HALAL 95g\n15024-COLLI,03838471039284,box,Argeta HALAL 95g -kip\n15024-ST,03838975566576,piece,Argeta HALAL 95g -kip\n15028-COLLI,03838977141276,box,POLI Pate classic 95g\n15028-ST,03838977040890,piece,POLI Pate classic 95g\n15040-COLLI,03838471052436,box,Argeta Meatless A'La kip 95g\n15040-ST,03838471052429,piece,Argeta Meatless A'La kip 95g\n15041-COLLI,03838471052450,box,Argeta Meatless A'La kip Pikant 95g\n15041-ST,03838471052443,piece,Argeta Meatless A'La kip Pikant 95g\n1514-COLLI,08717371009885,box,MEZZA Chicken pate 50g\n1514-ST,08717371009892,piece,MEZZA Chicken pate 50g\n1515-COLLI,08717371009847,box,MEZZA Chicken pate HOT 50g\n1515-ST,08717371009854,piece,MEZZA Chicken pate HOT 50g\n1516-COLLI,08717371009861,box,MEZZA Tuna pate 50g\n1516-ST,08717371009878,piece,MEZZA Tuna pate 50g\n1520-COLLI,03859890848950,box,Rundvlees goulash 200g Podravka\n1520-ST,03850104020018,piece,Rundvlees goulash 200g Podravka\n15201-COLLI,08717371002626,box,MEZZA GULAS 200g Halal\n15201-ST,08717371002619,piece,MEZZA GULAS 200g Halal\n1521-COLLI,03850104937729,box,Rundvlees goulash 300g Podravka\n1521-ST,03850104020032,piece,Rundvlees goulash 300g Podravka\n15211-COLLI,03858886460589,box,Rundvlees goulash 300g HALAL\n15211-ST,03858886460572,piece,Rundvlees goulash 300g HALAL\n1522-COLLI,03859890848998,box,Rundvlees goulash 400g Podravka\n1522-ST,03850104020087,piece,Rundvlees goulash 400g Podravka\n15221-COLLI,08717371002640,box,MEZZA GULAS 400g Halal\n15221-ST,08717371002633,piece,MEZZA GULAS 400g Halal\n15222-COLLI,08717371000493,box,MEZZA Grah bez mesa 860g\n15222-ST,08717371000486,piece,MEZZA Grah bez mesa 860g\n1526-COLLI,03858886460060,box,Narezak -CORNED BEEF 200g Podravka\n1526-ST,03850104020803,piece,Narezak -CORNED BEEF 200g Podravka\n15260-COLLI,03856020214944,box,Narezak 200g HALAL Podravka\n15260-ST,03856020214937,piece,Narezak 200g HALAL Podravka\n15261-COLLI,08717371002602,box,MEZZA GOVEDJI NAREZAK 200G Halal\n15261-ST,08717371002596,piece,MEZZA GOVEDJI NAREZAK 200G Halal\n1528-COLLI,03859890848493,box,Kippenpastei 135 g Podravka\n1528-ST,03850104020452,piece,Kippenpastei 135 g Podravka\n15281-COLLI,03858886460619,box,Kippenpastei 135 g - HALAL\n15281-ST,03858886460602,piece,Kippenpastei 135 g - HALAL\n15302-COLLI,03838929111852,box,DELATERA Kippaté 100g\n15302-ST,00000038381225,piece,DELATERA Kippaté 100g\n1531-COLLI,03831006680838,box,Kippenvlees stukjes 150g Delatera\n1531-ST,03831006612365,piece,Kippenvlees stukjes 150g Delatera\n15311-COLLI,08717371002664,box,MEZZA KIP NAREZAK 200G Halal\n15311-ST,08717371002657,piece,MEZZA KIP NAREZAK 200G Halal\n15331-COLLI,03831006680814,box,Kalkoenvlees stukjes 150G PIVKA\n15331-ST,03831006613386,piece,Kalkoenvlees stukjes 150G PIVKA\n1545-COLLI,03838929116116,box,Delamaris Tuna-Steak 4x80g\n1545-ST,03838929422385,piece,Delamaris Tuna-Steak 4x80g\n1550-COLLI,03838929114600,box,Delamaris Sardine in olie 90g\n1550-ST,03838929411662,piece,Delamaris Sardine in olie 90g\n1551-COLLI,03838929114617,box,Delamaris Sardine mediteran olie 90g\n1551-ST,03838929411686,piece,Delamaris Sardine mediteran olie 90g\n1552-COLLI,03838929118127,box,DELAMARIS IZOLA BRAND salad 125g\n1552-ST,03838929567802,piece,DELAMARIS IZOLA BRAND salad 125g\n1553-COLLI,03838929114624,box,Delamaris Sardine pikant 90g\n1553-ST,03838929414663,piece,Delamaris Sardine pikant 90g\n1555-COLLI,03838929118097,box,DELAMARIS PROVENCALE salad 125 g\n1555-ST,03838929568649,piece,DELAMARIS PROVENCALE salad 125 g\n1600-COLLI,03871354004054,box,IMPERIAL Suiker klontjes 750g\n1600-ST,03871354004535,piece,IMPERIAL Suiker klontjes 750g\n16011-COLLI,03856020252809,box,PODRAVKA Pruimen jam 350g\n16011-ST,03856020252793,piece,PODRAVKA Pruimen jam 350g\n16021-COLLI,03856020252229,box,PODRAVKA Rozenbottels jam 360g\n16021-ST,03856020252212,piece,PODRAVKA Rozenbottels jam 360g\n1700-COLLI,03850102008865,box,Bajadera bonbons 200 g Kras\n1700-ST,03850102230044,piece,Bajadera bonbons 200 g Kras\n1702-COLLI,03850102969821,box,MINI BANANKO 120g. Kras\n1702-ST,03850102126552,piece,MINI BANANKO 120g. Kras\n1703-COLLI,08600114010821,box,NJAMB Crispy choco 150g\n1703-ST,08600114010814,piece,NJAMB Crispy choco 150g\n17032-COLLI,08600114010807,box,NJAMB Extra choco 150g\n17032-ST,08600114010791,piece,NJAMB Extra choco 150g\n17033-COLLI,08601900706102,box,Eurocrem FILBI biscuits 125g\n17033-ST,08601900704023,piece,Eurocrem FILBI biscuits 125g\n17037-COLLI,03877001088446,box,WOW Medenjaci 400g Sumaks\n17037-ST,03870919000647,piece,WOW Medenjaci 400g Sumaks\n17038-COLLI,03877001088453,box,WOW Medenjaci 200g\n17038-ST,03870919000487,piece,WOW Medenjaci 200g\n17039-COLLI,03877001088460,box,WOW Witte Medenjaci 400g\n17039-ST,03870919000517,piece,WOW Witte Medenjaci 400g\n1704-COLLI,08602300202157,box,Chocola banaantjes 150g Pionir\n1704-ST,08602300202089,piece,Chocola banaantjes 150g Pionir\n1705-COLLI,08600939361467,box,STARK Bananica 125 gr.\n1705-ST,08600939365731,piece,STARK Bananica 125 gr.\n17051-COLLI,08600939361443,box,STARK Bananica 25g Stark\n17051-ST,08600939365700,piece,STARK Bananica 25g Stark\n17053-COLLI,08600939361436,box,STARK Bananica 400g\n17053-ST,08600939365694,piece,STARK Bananica 400g\n1706-COLLI,03850102000920,box,BANANKO- 30g Kras\n1706-ST,03850102127252,piece,BANANKO- 30g Kras\n1707-COLLI,03870004025203,box,Bosnische lokum 400g koekjes Klas\n1707-ST,03870004004697,piece,Bosnische lokum 400g koekjes Klas\n1708-COLLI,03870004025289,box,Bosnische lokum 180g Klas\n1708-ST,03870004004048,piece,Bosnische lokum 180g Klas\n1709-COLLI,03850102977659,box,BRONHI hoestbonbons 100g Kras\n1709-ST,03850102516797,piece,BRONHI hoestbonbons 100g Kras\n1711-COLLI,03850102004843,box,KARMELA WAFELS 400G\n1711-ST,03850102004782,piece,KARMELA WAFELS 400G\n17111-COLLI,03850102009756,box,KOKOS CHOCO NAPOLITANKE 250g\n17111-ST,03850102012442,piece,KOKOS CHOCO NAPOLITANKE 250g\n1713-COLLI,03850102977550,box,Zivotinjsko carstvo 15g melkchocola\n1713-ST,03850102114269,piece,Zivotinjsko carstvo 15g melkchocola\n1714-COLLI,03870450008959,box,DOMACICA extra CHOCO 220 g\n1714-ST,03870450002001,piece,DOMACICA extra CHOCO 220 g\n1715-COLLI,03871354004405,box,Choco strudla 250g MASTER\n1715-ST,03871354004382,piece,Choco strudla 250g MASTER\n1716-COLLI,03850102010998,box,DOMACICA 300g Kras\n1716-ST,03850102314126,piece,DOMACICA 300g Kras\n1720-COLLI,03850102011759,box,Dorina RICE 220g\n1720-ST,03850102505883,piece,Dorina RICE 220g\n1722-COLLI,03850102002474,box,Dorina PUUR cooking 200g\n1722-ST,03850102113613,piece,Dorina PUUR cooking 200g\n1723-COLLI,03850102003440,box,DORINA NOISETTE 80 G\n1723-ST,03850102125173,piece,DORINA NOISETTE 80 G\n1724-COLLI,03850102017645,box,Dorina ICE- LEDENA 100g\n1724-ST,03850102117215,piece,Dorina ICE- LEDENA 100g\n1725-COLLI,03850102011735,box,Dorina RICE 75g\n1725-ST,03850102123681,piece,Dorina RICE 75g\n1726-COLLI,08601900805300,box,Eurocrem chocopasta 300g Swisslion\n1726-ST,08601900503558,piece,Eurocrem chocopasta 300g Swisslion\n17260-COLLI,08601900505804,box,Eurocrem PLUS 700g Swisslion\n17260-ST,08601900505767,piece,Eurocrem PLUS 700g Swisslion\n17263-COLLI,08601900502872,box,EUROKREM MIX 280G\n17263-ST,08601900502773,piece,EUROKREM MIX 280G\n17271-COLLI,08601900805324,box,Euroblok chocolade 90gr Swisslion\n17271-ST,08601900502056,piece,Euroblok chocolade 90gr Swisslion\n1728-COLLI,08601900805614,box,Eurocrem chocopasta 100g Swisslion\n1728-ST,00000086019101,piece,Eurocrem chocopasta 100g Swisslion\n1729-COLLI,03875002210354,box,Eurovafel 180g Swisslion\n1729-ST,03875002211412,piece,Eurovafel 180g Swisslion\n1730-COLLI,08601900805065,box,Eurocrem chocopasta 1kg Swisslion\n1730-ST,08601900504197,piece,Eurocrem chocopasta 1kg Swisslion\n1731-COLLI,03875000059429,box,MILK Eurovafel 180g\n1731-ST,03875000058781,piece,MILK Eurovafel 180g\n1732-COLLI,08606033741426,box,CHIPSY classic Marbo 210 gr.\n1732-ST,08606033741280,piece,CHIPSY classic Marbo 210 gr.\n17321-COLLI,08606033740122,box,CHIPSY classic Marbo 140g\n17321-ST,08606017378495,piece,CHIPSY classic Marbo 140g\n17322-COLLI,08606033740283,box,CHIPSY X cut salted 140g\n17322-ST,08606017378532,piece,CHIPSY X cut salted 140g\n17323-COLLI,08606033740207,box,CHIPSY X cut CHILI 140g\n17323-ST,08606017377597,piece,CHIPSY X cut CHILI 140g\n17324-COLLI,08606017375296,box,CHIPSY X cut CHILI 210g\n17324-ST,08606033741419,piece,CHIPSY X cut CHILI 210g\n17325-COLLI,08606033741631,box,CLIPSY Chicken drums 110g\n17325-ST,08606033741600,piece,CLIPSY Chicken drums 110g\n17326-COLLI,08717371001131,box,Crispy Fun Chili 50g\n17326-ST,03870507004705,piece,Crispy Fun Chili 50g\n17327-COLLI,03870507005313,box,Crispy Fun Sour Cream and Onion 50g\n17327-ST,03870507005283,piece,Crispy Fun Sour Cream and Onion 50g\n17328-COLLI,03870507003203,box,Crispy Fun Chicken 50g\n17328-ST,03870507004729,piece,Crispy Fun Chicken 50g\n17329-COLLI,03870507004569,box,Gedroogde pruimen zonder pitten 200g\n17329-ST,03870507004491,piece,Gedroogde pruimen zonder pitten 200g\n17330-COLLI,08606033743055,box,CHIPSY X cut CHILI 130g\n17330-ST,08606033743062,piece,CHIPSY X cut CHILI 130g\n1734-COLLI,03871354004733,box,SNACKY Flips rond 130g\n1734-ST,03870007026825,piece,SNACKY Flips rond 130g\n1735-COLLI,03850102011469,box,PETIT BEURRE 480 g KRAS\n1735-ST,03850102311439,piece,PETIT BEURRE 480 g KRAS\n17358-COLLI,03871044004067,box,GOLD Chips naturel 180g\n17358-ST,03871044002476,piece,GOLD Chips naturel 180g\n17359-COLLI,03871044002490,box,GOLD Chips CHILLI 170g\n17359-ST,03871044002551,piece,GOLD Chips CHILLI 170g\n1736-COLLI,03871044002520,box,Gold Flips 140g\n1736-ST,03871044001233,piece,Gold Flips 140g\n17362-COLLI,08600939503232,box,Smoki 150g Stark\n17362-ST,08600939506936,piece,Smoki 150g Stark\n17366-COLLI,08600939370568,box,Smoki CHOCO 80g Stark\n17366-ST,08600939375563,piece,Smoki CHOCO 80g Stark\n17367-COLLI,08600939502921,box,Smoki 250g Stark\n17367-ST,08600939507025,piece,Smoki 250g Stark\n1737-COLLI,08600114000112,box,Jaffa cakes sinas 150g\n1737-ST,08600114000013,piece,Jaffa cakes sinas 150g\n17371-COLLI,08600114009771,box,Jaffa BROWNIE choco 75g\n17371-ST,08600114009764,piece,Jaffa BROWNIE choco 75g\n17374-COLLI,03870612000234,box,TOPS Biscuit 125 g\n17374-ST,03871040003309,piece,TOPS Biscuit 125 g\n1738-COLLI,03850102017423,box,JADRO ORIGINAL 430g\n1738-ST,03850102522545,piece,JADRO ORIGINAL 430g\n17381-COLLI,03850102017294,box,JADRO original 190g\n17381-ST,03850102017157,piece,JADRO original 190g\n1739-COLLI,03850104467110,box,LINO lada DUO 350g\n1739-ST,03850104267116,piece,LINO lada DUO 350g\n1740-COLLI,03856020213589,box,LINO Lada GOLD 350g\n1740-ST,03856020213572,piece,LINO Lada GOLD 350g\n17401-COLLI,03850104467103,box,LINO lada MILK 350g\n17401-ST,03850104267109,piece,LINO lada MILK 350g\n1741-COLLI,03850102017478,box,JADRO KOKOS 430g\n1741-ST,03850120297432,piece,JADRO KOKOS 430g\n1742-COLLI,08602300205950,box,Kokos desert Pionir 30g\n1742-ST,08602300205943,piece,Kokos desert Pionir 30g\n1743-COLLI,08602300205936,box,Kesten desert 30 g Pionir\n1743-ST,08602300205929,piece,Kesten desert 30 g Pionir\n1744-COLLI,03850102006229,box,Kiki PLUS 100g KRAS\n1744-ST,03850102005871,piece,Kiki PLUS 100g KRAS\n1745-COLLI,03850102006144,box,KIKI TUTTI FRUTTI 100g\n1745-ST,03850102516704,piece,KIKI TUTTI FRUTTI 100g\n17450-COLLI,08716100902121,box,KATJA Apekoppen 410g\n17450-ST,08716100202122,piece,KATJA Apekoppen 410g\n17451-COLLI,08716100946125,box,KATJA Yoghurt Gums 410g\n17451-ST,08716100246126,piece,KATJA Yoghurt Gums 410g\n17452-COLLI,08716100990173,box,KATJA Regenboog Geluk 400g\n17452-ST,08716100390126,piece,KATJA Regenboog Geluk 400g\n17453-COLLI,08716100932470,box,KATJA Al Paca 250g\n17453-ST,08716100132474,piece,KATJA Al Paca 250g\n1746-COLLI,03850102011841,box,FRONDI NOUGAT 250g\n1746-ST,03850102002221,piece,FRONDI NOUGAT 250g\n17462-COLLI,03850102018604,box,Frondi Limun 250g\n17462-ST,03850102002283,piece,Frondi Limun 250g\n17465-COLLI,03850102011834,box,FRONDI CACAO 250gr\n17465-ST,03850102002245,piece,FRONDI CACAO 250gr\n1747-COLLI,08600043020564,box,Lane biscuits 600g\n1747-ST,08600043003314,piece,Lane biscuits 600g\n17471-COLLI,08600043043037,box,Lane CHOCO biscuits 135g\n17471-ST,08600043011128,piece,Lane CHOCO biscuits 135g\n1748-COLLI,08600043020557,box,Lane biscuit 300g\n1748-ST,08600043003307,piece,Lane biscuit 300g\n17481-COLLI,08600043023404,box,Lane POSNO biscuits300g\n17481-ST,08600043023398,piece,Lane POSNO biscuits300g\n1749-COLLI,08600043042641,box,Lane gemalen 300g\n1749-ST,08600043003321,piece,Lane gemalen 300g\n17491-COLLI,08600043023428,box,Lane POSNO gemalen 300g\n17491-ST,08600043023411,piece,Lane POSNO gemalen 300g\n17492-COLLI,08600043043228,box,Lane POSNO gemalen 300g\n17492-ST,08600043023411,piece,Lane POSNO gemalen 300g\n17495-COLLI,08600043041002,box,Lane biscuit 135g\n17495-ST,08600043041033,piece,Lane biscuit 135g\n1752-COLLI,08600114005858,box,JAFFA Napolitanke Cremè 187 g\n1752-ST,08600114005841,piece,JAFFA Napolitanke Cremè 187 g\n17521-COLLI,08600114012344,box,JAFFA Napolitanke Cremè 187 g\n17521-ST,08600114005841,piece,JAFFA Napolitanke Cremè 187 g\n1753-COLLI,08602300209385,box,Lesnik karamela 100 g\n1753-ST,08602300207305,piece,Lesnik karamela 100 g\n1754-COLLI,08602300201846,box,Medeno srce -Honing hartjes 350g\n1754-ST,08602300201631,piece,Medeno srce -Honing hartjes 350g\n17541-COLLI,05310115002154,box,VINCINI Tortina 200g Melk\n17541-ST,05310115001089,piece,VINCINI Tortina 200g Melk\n17542-COLLI,05310115002130,box,VINCINI Tortina 200g Aardbei\n17542-ST,05310115001072,piece,VINCINI Tortina 200g Aardbei\n17543-COLLI,05310115002147,box,VINCINI Tortina 200g Cacao\n17543-ST,05310115001096,piece,VINCINI Tortina 200g Cacao\n17546-COLLI,05310115002505,box,Vincini Jumbo Roll Aardbei 300g\n17546-ST,05310115000228,piece,Vincini Jumbo Roll Aardbei 300g\n17547-COLLI,05310115002482,box,Vincini Jumbo Roll Karamel 300g\n17547-ST,05319990225528,piece,Vincini Jumbo Roll Karamel 300g\n17548-COLLI,05310115006602,box,Vincini Rondo Cake Marble 360g\n17548-ST,05310115005650,piece,Vincini Rondo Cake Marble 360g\n1755-COLLI,03850102969500,box,PEPERMINT snoepjes 100g Kras\n1755-ST,03850102210312,piece,PEPERMINT snoepjes 100g Kras\n17551-COLLI,08602300206827,box,Medeno srce KERSEN 350g\n17551-ST,08602300206810,piece,Medeno srce KERSEN 350g\n17560-COLLI,08606010873171,box,VITANOVA gemalen 300g\n17560-ST,08606010873164,piece,VITANOVA gemalen 300g\n17561-COLLI,08606010877247,box,VITANOVA koekjes 150g\n17561-ST,08606010877230,piece,VITANOVA koekjes 150g\n17562-COLLI,08606010876615,box,PIONIR ALPHABET 100g\n17562-ST,08606010876608,piece,PIONIR ALPHABET 100g\n1758-COLLI,08600114011255,box,Jaffa wafers Choco & orange 160g\n1758-ST,08600114011248,piece,Jaffa wafers Choco & orange 160g\n17581-COLLI,08600114012405,box,Jaffa wafers Choco & orange 160g\n17581-ST,08600114011248,piece,Jaffa wafers Choco & orange 160g\n1759-COLLI,03850102978250,box,MOTO cacao 288g\n1759-ST,03850102522859,piece,MOTO cacao 288g\n1760-COLLI,08600114000129,box,Munchmallow koekjes 105g\n1760-ST,08600114000020,piece,Munchmallow koekjes 105g\n1762-COLLI,08600946443217,box,Isleri duo pack 250g\n1762-ST,08600946443002,piece,Isleri duo pack 250g\n1763-COLLI,03850102981908,box,NAPOLITANKE CHOCO CREAM 327G\n1763-ST,03850102523443,piece,NAPOLITANKE CHOCO CREAM 327G\n1765-COLLI,03850102981922,box,NAPOLITANKE LEMON 327g Kras\n1765-ST,03850102523467,piece,NAPOLITANKE LEMON 327g Kras\n1766-COLLI,03850102944132,box,NAPOLITANKE NOUGAT 500g Kras\n1766-ST,03850102322596,piece,NAPOLITANKE NOUGAT 500g Kras\n17660-COLLI,03850102968268,box,Napolitanke Choco cream 500g\n17660-ST,03850102322909,piece,Napolitanke Choco cream 500g\n17661-COLLI,03850102981915,box,NAPOLITANKE NOUGAT 327g\n17661-ST,03850102523450,piece,NAPOLITANKE NOUGAT 327g\n1767-COLLI,08602300209378,box,NEGRO hoestbonbons 100g\n1767-ST,08602300204137,piece,NEGRO hoestbonbons 100g\n17670-COLLI,08602300234554,box,NEGRO citroen- gember snoep 100g\n17670-ST,08602300234547,piece,NEGRO citroen- gember snoep 100g\n1771-COLLI,03870507000011,box,SOFKA Wafelbladeren 200g\n1771-ST,09120018535521,piece,SOFKA Wafelbladeren 200g\n17721-COLLI,05310115002710,box,VINCINI Donker Taartenbodem 400g\n17721-ST,05310115000518,piece,VINCINI Donker Taartenbodem 400g\n17722-COLLI,05310115002703,box,VINCINI Licht Taartenbodem 400g\n17722-ST,05310115000501,piece,VINCINI Licht Taartenbodem 400g\n1777-COLLI,08602300217953,box,MINJON KOCKE Pionir 260g\n1777-ST,08602300217946,piece,MINJON KOCKE Pionir 260g\n1782-COLLI,08600939217825,box,2+1 gratis Sticks met pindas 100g\n1782-ST,08600939212295,piece,2+1 gratis Sticks met pindas 100g\n17821-COLLI,08600939218204,box,Prima Stapici 230g- VEGAN\n17821-ST,08600939212448,piece,Prima Stapici 230g- VEGAN\n17822-COLLI,08600939218112,box,Prima Salty Sticks 220g-Vegan\n17822-ST,08600939212271,piece,Prima Salty Sticks 220g-Vegan\n1783-COLLI,08600462042413,box,TRIK mix 300g -Pizza\n1783-ST,08600462042406,piece,TRIK mix 300g -Pizza\n17831-COLLI,05310345009435,box,Rocky Four seeds cracker 200g Vincinni\n17832-COLLI,05310345008193,box,Rocky PARTY mix cracker 250g\n17833-COLLI,05310345008254,box,Rocky ORIGINAL cracker 250g\n1784-COLLI,08600462021319,box,TRIK mix 300g\n1784-ST,08600462020954,piece,TRIK mix 300g\n17840-COLLI,05999862215842,box,SALTY MIX 280g Foody\n1786-COLLI,08600104008319,box,Strudla BROWNIE/ MALINA 240G Medela\n1786-ST,08600104006254,piece,Strudla BROWNIE/ MALINA 240G Medela\n1787-COLLI,08600104008265,box,Strudla MIX Medela 240 g\n1787-ST,08600104004724,piece,Strudla MIX Medela 240 g\n1788-COLLI,08600104008258,box,Strudla Medela vijgen 240g-\n1788-ST,08600104004458,piece,Strudla Medela vijgen 240g-\n1790-COLLI,03870004022523,box,Vanille koekjes KLAS 220g\n1790-ST,03870004022455,piece,Vanille koekjes KLAS 220g\n1791-COLLI,03870004063311,box,Klas Sarko Nera koekjes 200g\n1791-ST,03870004063304,piece,Klas Sarko Nera koekjes 200g\n1792-COLLI,15319990443400,box,SUNDAY BAKLAVA 1.5kg pistache\n1793-COLLI,03850104430015,box,Cokolino. kindervoeding 200g\n1793-ST,03850104230011,piece,Cokolino. kindervoeding 200g\n1794-COLLI,03850104917530,box,COKOLINO 1 kg Podravka\n1794-ST,03850104017537,piece,COKOLINO 1 kg Podravka\n1795-COLLI,03850104410253,box,COKOLINO 500g Podravka\n1795-ST,03850104210259,piece,COKOLINO 500g Podravka\n1796-COLLI,03850104458972,box,Lino Lada Pillows Nougat 250g\n1796-ST,03850104258978,piece,Lino Lada Pillows Nougat 250g\n1797-COLLI,03850104459610,box,Lino lada Pillows Milk 250g\n1797-ST,03850104259616,piece,Lino lada Pillows Milk 250g\n17980-COLLI,15319990443561,box,Sunday Vanilica 500g\n17980-ST,05319990443564,piece,Sunday Vanilica 500g\n17981-COLLI,15319992230749,box,Sunday Vanilica Jam 1.5 kg\n17981-ST,05319992230742,piece,Sunday Vanilica Jam 1.5 kg\n17987-COLLI,15319991696928,box,SUNDAY Pistache Baklava 500g\n17987-ST,05319991696921,piece,SUNDAY Pistache Baklava 500g\n17988-COLLI,15319990443448,box,1.5 kg SUNDAY PETIT FOUR\n17988-ST,05319990443441,piece,1.5 kg SUNDAY PETIT FOUR\n17989-COLLI,15319990443226,box,1.5 kg SUNDAY GURABIJA\n17989-ST,05319990443229,piece,1.5 kg SUNDAY GURABIJA\n17990-COLLI,15319991696775,box,SUNDAY Choco Baklava -kersen 350g\n17990-ST,05319991696778,piece,SUNDAY Choco Baklava -kersen 350g\n17992-COLLI,15319990443615,box,SUNDAY Petit Four 750g\n17992-ST,05319990443618,piece,SUNDAY Petit Four 750g\n17993-COLLI,15319990443998,box,SUNDAY Petit Four Choco Abrikozen 350g\n17993-ST,05319990443991,piece,SUNDAY Petit Four Choco Abrikozen 350g\n17994-COLLI,15319990443509,box,SUNDAY Tulumba mini 500g\n17994-ST,05319990443502,piece,SUNDAY Tulumba mini 500g\n17996-COLLI,15319990443868,box,SUNDAY Baklava 500g\n17996-ST,05319990443861,piece,SUNDAY Baklava 500g\n17997-COLLI,15319990443769,box,SUNDAY Gurabija met amandelen 400g\n17997-ST,05319990443762,piece,SUNDAY Gurabija met amandelen 400g\n17998-COLLI,15319991696676,box,SUNDAY Orient mix 400g\n17998-ST,05319991696679,piece,SUNDAY Orient mix 400g\n17999-COLLI,15319991696591,box,SUNDAY Kadaif 400g\n17999-ST,05319991696594,piece,SUNDAY Kadaif 400g\n1802-COLLI,03870007489170,box,Kamille thee 20g. VISPAK\n1802-ST,03870007089172,piece,Kamille thee 20g. VISPAK\n18021-COLLI,03870007489217,box,Brusnica- Cranberrie thee 40g VISPAK\n18021-ST,03870007089219,piece,Brusnica- Cranberrie thee 40g VISPAK\n1803-COLLI,03870007489262,box,Planinski caj-Berg thee 36g VISPAK\n1803-ST,03870007089264,piece,Planinski caj-Berg thee 36g VISPAK\n1804-COLLI,03870007489194,box,Thijm thee VISPAK 30g\n1804-ST,03870007089196,piece,Thijm thee VISPAK 30g\n1805-COLLI,03870007489187,box,Munt thee VISPAK 30g\n1805-ST,03870007089189,piece,Munt thee VISPAK 30g\n1806-COLLI,03870007489224,box,Rozenbottel thee VISPAK 50g\n1806-ST,03870007089226,piece,Rozenbottel thee VISPAK 50g\n1809-COLLI,03870007489279,box,Uvin thee 30g. VISPAK\n1809-ST,03870007089271,piece,Uvin thee 30g. VISPAK\n1810-COLLI,05306000107844,box,Emona premium thee 400gr\n1810-ST,05306000107813,piece,Emona premium thee 400gr\n1812-COLLI,05306000107851,box,Emona 444A Zwarte thee - 700gr.\n1812-ST,05306000107820,piece,Emona 444A Zwarte thee - 700gr.\n1813-COLLI,05306000107837,box,Emona Premium thee 800 gr\n1813-ST,05306000107806,piece,Emona Premium thee 800 gr\n1902-COLLI,03870690001918,box,Chocolate cake 1000g Gusto\n1902-ST,03870690001499,piece,Chocolate cake 1000g Gusto\n19020-COLLI,03870218003738,box,Honey cake -frozen 800g\n19020-ST,03870218003653,piece,Honey cake -frozen 800g\n19021-COLLI,03870218002892,box,Belgian cake -frozen 800g\n19021-ST,03870218008658,piece,Belgian cake -frozen 800g\n19022-COLLI,03870690001925,box,Fur caps 300g Gusto\n19022-ST,03870690000980,piece,Fur caps 300g Gusto\n19023-COLLI,03870690001932,box,Whipped cream pie 250g Gusto\n19023-ST,03870690000010,piece,Whipped cream pie 250g Gusto\n19026-COLLI,03870004030177,box,Hurmasica 500g KLAS\n19026-ST,03870004031853,piece,Hurmasica 500g KLAS\n19029-COLLI,03870690001949,box,Nougat cake 1000g Gusto\n19029-ST,03870690001314,piece,Nougat cake 1000g Gusto\n1903-COLLI,03870004011831,box,KLAS Somun 2x200g\n1903-ST,03870004011848,piece,KLAS Somun 2x200g\n19030-COLLI,09120018535972,box,SOFKA LEPINJA 2 X 200g\n19030-ST,09120018535965,piece,SOFKA LEPINJA 2 X 200g\n19032-COLLI,03870004030085,box,Tulumba 400g KLAS\n19032-ST,03870004030825,piece,Tulumba 400g KLAS\n19033-COLLI,03870004030313,box,Baklava 500g KLAS\n19033-ST,03870004031846,piece,Baklava 500g KLAS\n19039-COLLI,08717371000912,box,Lepinja - Somun 4x150g\n19039-ST,08717371000899,piece,Lepinja - Somun 4x150g\n19041-COLLI,03870690001970,box,Krempita 350g Gusto e sapore\n19041-ST,03870690000034,piece,Krempita 350g Gusto e sapore\n19042-COLLI,03870690001987,box,Medena torta 1400g\n19042-ST,03870690001611,piece,Medena torta 1400g\n1905-COLLI,03870690002182,box,TRI LECE gebak 630g\n1905-ST,03870690001741,piece,TRI LECE gebak 630g\n1907-COLLI,08717371006358,box,MEZZA Cevapi Banjaluka 730g\n1907-ST,08717371000523,piece,MEZZA Cevapi Banjaluka 730g\n1908-COLLI,08713582181471,box,MEZZA Cevapi Sarajevo 750g\n1908-ST,08717371000509,piece,MEZZA Cevapi Sarajevo 750g\n19080-COLLI,08713582186261,box,MEZZA Cevapi SA HORECA\n19081-COLLI,08717371000783,box,Mezza Cevapi Sarajevo 500g zak\n19081-ST,08717371000929,piece,Mezza Cevapi Sarajevo 500g zak\n19111-COLLI,03838977143447,box,POLI DOG Rolls 660g\n19111-ST,03838977043440,piece,POLI DOG Rolls 660g\n1913-COLLI,09120133701436,box,SOFKA BUREK Rundvlees 480g\n1913-ST,09120133701429,piece,SOFKA BUREK Rundvlees 480g\n1914-COLLI,09120133701450,box,SOFKA BUREK Spinazie+Kaas 480g\n1914-ST,09120133701443,piece,SOFKA BUREK Spinazie+Kaas 480g\n1915-COLLI,09120133701399,box,SOFKA BUREK Aardappel 480g\n1915-ST,09120133701382,piece,SOFKA BUREK Aardappel 480g\n1916-COLLI,09120133701412,box,SOFKA BUREK Kaas 480g\n1916-ST,09120133701405,piece,SOFKA BUREK Kaas 480g\n19161-COLLI,09120018537808,box,SOFKA FAMILY BUREK rundvlees 500g\n19161-ST,09120018537792,piece,SOFKA FAMILY BUREK rundvlees 500g\n19162-COLLI,09120018537822,box,SOFKA FAMILY BUREK met Kaas 500g\n19162-ST,09120018537815,piece,SOFKA FAMILY BUREK met Kaas 500g\n19163-COLLI,09120018537983,box,SOFKA FAMILY BUREK met spinazie 500g\n19163-ST,09120018537976,piece,SOFKA FAMILY BUREK met spinazie 500g\n19164-COLLI,09120018537747,box,Sofka MANTIJA -BITES rundvlees 700g\n19164-ST,09120018537730,piece,Sofka MANTIJA -BITES rundvlees 700g\n19165-COLLI,09120018537761,box,SOFKA MANTIJE -BITES KAAS 700g\n19165-ST,09120018537754,piece,SOFKA MANTIJE -BITES KAAS 700g\n19166-COLLI,09120018537785,box,SOFKA MANTIJE -BITES SPINAZIE 700g\n19166-ST,09120018537778,piece,SOFKA MANTIJE -BITES SPINAZIE 700g\n19171-COLLI,03870218004254,box,Mantije kip vlees 700g\n19171-ST,03870218008146,piece,Mantije kip vlees 700g\n19173-COLLI,03838977141467,box,Perutnina Chicken nuggets 400g\n19173-ST,03838977041460,piece,Perutnina Chicken nuggets 400g\n19174-COLLI,03838977127379,box,Perutnina Chicken wings 600g\n19174-ST,03838977027372,piece,Perutnina Chicken wings 600g\n1922-COLLI,08717371000721,box,MEZZA Cevapcici Leskovac 800g\n1922-ST,08717371000714,piece,MEZZA Cevapcici Leskovac 800g\n1923-COLLI,08717371000745,box,MEZZA Balkan grill mix 980g\n1923-ST,08717371000738,piece,MEZZA Balkan grill mix 980g\n1937-COLLI,09120018199051,box,Cevapcici 800g BRAJLOVIC\n1937-ST,09120018530229,piece,Cevapcici 800g BRAJLOVIC\n1938-COLLI,09120018059690,box,Cevapcici Banjaluka 800g BRAJLOVIC\n1938-ST,09120018530069,piece,Cevapcici Banjaluka 800g BRAJLOVIC\n1939-COLLI,09120018531981,box,Hamburger TK 800g BRAJLOVIC\n1939-ST,09120018530991,piece,Hamburger TK 800g BRAJLOVIC\n20001-COLLI,05304000433598,box,NL Golden Eagle 0.25L ENERGYDRINK\n20001-ST,05304000433826,piece,NL Golden Eagle 0.25L ENERGYDRINK\n2001-COLLI,05304000433550,box,GOLDEN EAGLE 6 -PACK\n2001-ST,07640116362048,piece,GOLDEN EAGLE 6 -PACK\n20011-COLLI,68801056038290,box,Lotte Aloe Vera druivensap 240ml\n20011-ST,08717371000998,piece,Lotte Aloe Vera druivensap 240ml\n20012-COLLI,68801056052456,box,Lotte Aloe Vera met granaatappelsap 240m\n20012-ST,08717371001001,piece,Lotte Aloe Vera met granaatappelsap 240m\n20013-COLLI,68801056080572,box,Lotte Aloe Vera met mangosap 240m\n20013-ST,08717371000967,piece,Lotte Aloe Vera met mangosap 240m\n2002-COLLI,08717371001148,box,Nestea Forest Fruit 0.5L\n2002-ST,03877002606298,piece,Nestea Forest Fruit 0.5L\n20020-COLLI,05900334143969,box,Nestea Forest Fruit 1.5L\n20020-ST,03877002606311,piece,Nestea Forest Fruit 1.5L\n20024-COLLI,05900334143921,box,Nestea Lemon can 0.33L\n20024-ST,03877002606267,piece,Nestea Lemon can 0.33L\n20026-COLLI,05900334143938,box,Nestea Peach can 0.33L\n20026-ST,03877002606274,piece,Nestea Peach can 0.33L\n20027-COLLI,08595646203561,box,Nestea Peach 0.5L\n20027-ST,03877002606281,piece,Nestea Peach 0.5L\n20028-COLLI,08595646203585,box,Nestea Peach 1.5L\n20028-ST,03877002606304,piece,Nestea Peach 1.5L\n2003-COLLI,03870077000954,box,OAZA natural water 1.5L\n2003-ST,03870077000138,piece,OAZA natural water 1.5L\n20032-COLLI,08717371001063,box,OAZA mineraal water /glas 0.25L\n20032-ST,03870077000084,piece,OAZA mineraal water /glas 0.25L\n2004-COLLI,03870077000961,box,OAZA natural water 0.5L\n2004-ST,03870077000152,piece,OAZA natural water 0.5L\n20046-COLLI,27394376616505,box,OATLY haver BARISTA 1L\n20046-ST,07394376616501,piece,OATLY haver BARISTA 1L\n200460-COLLI,27394376617908,box,OATLY haver BARISTA 0.5L\n200460-ST,07394376617904,piece,OATLY haver BARISTA 0.5L\n200462-COLLI,27394376622650,box,OATLY Caramel Macchiato 235 ML\n200462-ST,07394376622656,piece,OATLY Caramel Macchiato 235 ML\n200463-COLLI,27394376622643,box,OATLY Cappuccino 235 ML\n200463-ST,07394376622649,piece,OATLY Cappuccino 235 ML\n20047-COLLI,27394376620762,box,OATLY haverdrank VOL 1L\n20047-ST,07394376620768,piece,OATLY haverdrank VOL 1L\n20048-COLLI,27394376616130,box,OATLY haverdrank KAKAO 1L\n20048-ST,07394376616136,piece,OATLY haverdrank KAKAO 1L\n2005-COLLI,03850322013373,box,Cedevita GO 340ml orange\n2005-ST,03850322013366,piece,Cedevita GO 340ml orange\n20050-COLLI,27394376619261,box,OATLY HAVER VANILLE 1L\n20050-ST,07394376619267,piece,OATLY HAVER VANILLE 1L\n20051-COLLI,03850322013397,box,Cedevita GO 340ml -lemon\n20051-ST,03850322013380,piece,Cedevita GO 340ml -lemon\n20053-COLLI,03850322016572,box,Cedevita  GO 340ml Mango Ananas\n20053-ST,03850322016565,piece,Cedevita  GO 340ml Mango Ananas\n20054-COLLI,08718164546914,box,Berem Ayran 0.25L\n20054-ST,08718164546884,piece,Berem Ayran 0.25L\n2006-COLLI,03850322015469,box,Cedevita 455g ORANGE\n2006-ST,03850322015452,piece,Cedevita 455g ORANGE\n20061-COLLI,03850322015483,box,Cedevita 455g LEMON\n20061-ST,03850322015476,piece,Cedevita 455g LEMON\n20062-COLLI,03850322008591,box,Cedevita 455g LIMETA\n20062-ST,03850322008584,piece,Cedevita 455g LIMETA\n20063-COLLI,03850322014554,box,Cedevita 455g RED ORANGE\n20063-ST,03850322015490,piece,Cedevita 455g RED ORANGE\n20064-COLLI,03850322015018,box,Cedevita 900g LEMON\n20064-ST,03850322015001,piece,Cedevita 900g LEMON\n20065-COLLI,03850322014998,box,Cedevita 900g ORANGE\n20065-ST,03850322014981,piece,Cedevita 900g ORANGE\n20066-COLLI,03850322016633,box,Cedevita Ananas Mango 900g\n20066-ST,03850322016626,piece,Cedevita Ananas Mango 900g\n20081-COLLI,03838471033084,box,Cockta 0.275L\n20081-ST,03838471033077,piece,Cockta 0.275L\n2009-COLLI,03838471058711,box,Cockta 1.5L\n2009-ST,03838471034470,piece,Cockta 1.5L\n20090-COLLI,03850322009291,box,CEDEVITA ORANGE 24 G\n20090-ST,03850322009284,piece,CEDEVITA ORANGE 24 G\n20091-COLLI,03850322009161,box,CEDEVITA LEMON 24 G\n20091-ST,03850322009154,piece,CEDEVITA LEMON 24 G\n2012-COLLI,05310037000580,box,Strumka 1.5l -limonade\n2012-ST,05310037000627,piece,Strumka 1.5l -limonade\n2016-COLLI,03838600019446,box,Donat Mg 1L\n2016-ST,03838600019439,piece,Donat Mg 1L\n2017-COLLI,03838600770019,box,Donat Mg 0.5L\n2017-ST,03838600270014,piece,Donat Mg 0.5L\n2018-COLLI,03875000184015,box,Sarajevski Kiseljak 1.5L min. water\n2018-ST,03875000184008,piece,Sarajevski Kiseljak 1.5L min. water\n2019-COLLI,03875000184046,box,Sarajevski Kiseljak 0.5Lmin. water\n2019-ST,03875000184039,piece,Sarajevski Kiseljak 0.5Lmin. water\n20191-COLLI,03870077000909,box,OAZA GOLD Koolzuurhoudend 1.5 L\n20191-ST,03870077000015,piece,OAZA GOLD Koolzuurhoudend 1.5 L\n2020-COLLI,08600169600251,box,Prolom bronwater 0.5l\n2020-ST,08600169600046,piece,Prolom bronwater 0.5l\n2021-COLLI,03871327000090,box,COCA COLA 2L\n2021-ST,05449000000286,piece,COCA COLA 2L\n2022-COLLI,08600169600220,box,Prolom 1.5L bronwater\n2022-ST,08600169600022,piece,Prolom 1.5L bronwater\n2023-COLLI,03875000184077,box,Sensation-1.5l LIME-KIVIANO\n2023-ST,03875000184060,piece,Sensation-1.5l LIME-KIVIANO\n2024-COLLI,03875000184107,box,Sensation 0.5L - lime-kiwiano\n2024-ST,03875000184091,piece,Sensation 0.5L - lime-kiwiano\n20251-COLLI,03871327000823,box,Fanta 1.25L shokata\n20251-ST,08717371000653,piece,Fanta 1.25L shokata\n20253-COLLI,03871327000151,box,Fanta 1.5L Tropical Exotic\n20253-ST,05449000083142,piece,Fanta 1.5L Tropical Exotic\n2026-COLLI,03871327000830,box,Fanta 0.5L Shokata\n2026-ST,08717371000660,piece,Fanta 0.5L Shokata\n20261-COLLI,08717371000264,box,Fanta Exotic Tropicool 1.25L\n20261-ST,08717371000677,piece,Fanta Exotic Tropicool 1.25L\n20262-COLLI,08717371000271,box,Fanta Exotic Tropicool 0.5 L\n20262-ST,08717371000707,piece,Fanta Exotic Tropicool 0.5 L\n2027-COLLI,03875000184138,box,Sensation 1.5l DUNJA KRUSKA\n2027-ST,03875000184121,piece,Sensation 1.5l DUNJA KRUSKA\n2028-COLLI,03875000184169,box,Sensation 0.5L DUNJA KRUSKA\n2028-ST,03875000184152,piece,Sensation 0.5L DUNJA KRUSKA\n2029-COLLI,03856028508762,box,Jana Ice Tea 1.5l Waldfrucht\n2029-ST,03856028508755,piece,Jana Ice Tea 1.5l Waldfrucht\n2030-COLLI,03858884601069,box,Jana Ice Tea 1.5l peach\n2030-ST,03858884601045,piece,Jana Ice Tea 1.5l peach\n2031-COLLI,03858890876345,box,Jana Ice Tea Framboos&Hibiscus 1.5l\n2031-ST,03858890876321,piece,Jana Ice Tea Framboos&Hibiscus 1.5l\n2032-COLLI,03858884601748,box,Jana Ice Tea 0.5l Waldfrucht\n2032-ST,03858884601731,piece,Jana Ice Tea 0.5l Waldfrucht\n2033-COLLI,03858884601076,box,Jana Ice Tea 0.5l Breskva\n2033-ST,03858884601052,piece,Jana Ice Tea 0.5l Breskva\n2034-COLLI,03858884600086,box,JANA bronwater 1.5L\n2034-ST,03858884606422,piece,JANA bronwater 1.5L\n20341-COLLI,03871061000110,box,SWITY MULTIVITAMIN 1.5L\n20341-ST,03871050009995,piece,SWITY MULTIVITAMIN 1.5L\n20342-COLLI,03871061000127,box,SWITY LIMUNANA 1.5L\n20342-ST,03871050009971,piece,SWITY LIMUNANA 1.5L\n20343-COLLI,03871061000134,box,SWITY LIMUNANA 0.5L\n20343-ST,03871050009964,piece,SWITY LIMUNANA 0.5L\n20344-COLLI,03871061000141,box,SWITY BOSBES-ARONIA 1.5L\n20344-ST,03871050004594,piece,SWITY BOSBES-ARONIA 1.5L\n20345-COLLI,03871061000158,box,SWITY BOSBES-ARONIA 0.5L\n20345-ST,03871050004587,piece,SWITY BOSBES-ARONIA 0.5L\n20504-COLLI,03877000209187,box,ORANGINA 0.5L\n20504-ST,03877002606243,piece,ORANGINA 0.5L\n205041-COLLI,03877000209620,box,ORANGINA 1.25L\n205041-ST,03877002606328,piece,ORANGINA 1.25L\n20505-COLLI,03857500011022,box,ORANGINA CAN 0.33L\n20505-ST,03877002606236,piece,ORANGINA CAN 0.33L\n20506-COLLI,03877000209484,box,SPEZI 0.5L\n20506-ST,03877002606250,piece,SPEZI 0.5L\n20507-COLLI,03877000209989,box,SPEZI blik 0.33L\n20507-ST,03877002606120,piece,SPEZI blik 0.33L\n7002-COLLI,08717371000400,box,Kruiden mix sarajevo 2 x 11.200kg\n7002-ST,08717371003081,piece,Kruiden mix sarajevo 2 x 11.200kg\n8015-ST,03838471043816,piece,Argeta RAMADAN DISPLAY : 336 st Argeta\n8019-COLLI,08600114008354,box,Jaffa cakes TUBE 175g\n8019-ST,08600114008057,piece,Jaffa cakes TUBE 175g\n9101-COLLI,03850102967377,box,KIKI Tutti frutti 400g\n9105-COLLI,03850102013159,box,Choco napolitanke 215g KRAS\n9105-ST,03850102014606,piece,Choco napolitanke 215g KRAS\n";
+
+  let items = [];
+  let current = null;
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Validare GTIN ----------
+  function gtinCheckDigit(body13) {
+    let sum = 0;
+    for (let i = 0; i < body13.length; i++) {
+      const digit = Number(body13[body13.length - 1 - i]);
+      sum += digit * (i % 2 === 0 ? 3 : 1);
+    }
+    return (10 - (sum % 10)) % 10;
+  }
+
+  function normalizeGtin(raw) {
+    const s = String(raw).trim();
+    if (!/^\d+$/.test(s) || ![8, 12, 13, 14].includes(s.length)) {
+      throw new Error(t('errGtinFormat', s));
+    }
+    const gtin14 = s.padStart(14, '0');
+    if (gtinCheckDigit(gtin14.slice(0, 13)) !== Number(gtin14[13])) {
+      throw new Error(t('errCheck', s));
+    }
+    return gtin14;
+  }
+
+  // ---------- Parsare CSV ----------
+  function parseCsv(text) {
+    text = text.replace(/^\uFEFF/, '');
+    const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
+    if (lines.length < 2) throw new Error(t('errNoHeader'));
+    const delim = lines[0].includes(';') ? ';' : ',';
+    const header = lines[0].split(delim).map((h) => h.trim().toLowerCase());
+    for (const n of ['item_code', 'gtin', 'unit_type']) {
+      if (!header.includes(n)) throw new Error(t('errMissingCol', n));
+    }
+
+    const out = [];
+    const errors = [];
+    lines.slice(1).forEach((line, i) => {
+      const cols = line.split(delim).map((c) => c.trim());
+      const r = {};
+      header.forEach((h, idx) => (r[h] = cols[idx] || ''));
+      try {
+        const unitType = r.unit_type.toLowerCase();
+        if (!r.item_code) throw new Error(t('errNoCode'));
+        if (!['box', 'piece', 'kg'].includes(unitType)) throw new Error(t('errUnit', r.unit_type));
+        out.push({
+          item_code: r.item_code,
+          gtin: normalizeGtin(r.gtin),
+          unit_type: unitType,
+          description: r.description || '',
+        });
+      } catch (e) {
+        errors.push(t('errRow', i + 2, e.message));
+      }
+    });
+    if (errors.length) throw new Error(errors.join('\n'));
+    return out;
+  }
+
+  function showMsg(text) {
+    const el = $('msg');
+    el.hidden = !text;
+    el.textContent = text || '';
+  }
+
+  $('file').onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    showMsg('');
+    try {
+      items = parseCsv(await f.text());
+      $('info').textContent = t('loaded', items.length);
+      $('q').disabled = false;
+      $('empty').hidden = true;
+      $('q').focus();
+      search();
+    } catch (err) {
+      items = [];
+      $('q').disabled = true;
+      $('info').textContent = '';
+      showMsg(err.message);
+    }
+  };
+
+  // ---------- Căutare ----------
+  function search() {
+    const q = $('q').value.trim().toLowerCase();
+    const list = $('list');
+    list.innerHTML = '';
+    if (!items.length) return;
+
+    const found = items
+      .filter((it) => !q || it.item_code.toLowerCase().includes(q) || it.description.toLowerCase().includes(q))
+      .slice(0, 50);
+
+    if (!found.length) {
+      list.innerHTML = `<div class="empty">${t('noResults')}</div>`;
+      return;
+    }
+
+    found.forEach((it) => {
+      const row = document.createElement('div');
+      row.className = 'row';
+
+      const code = document.createElement('span');
+      code.className = 'code';
+      code.textContent = it.item_code;
+
+      const desc = document.createElement('span');
+      desc.className = 'desc';
+      desc.textContent = it.description;
+
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + it.unit_type;
+      badge.textContent = it.unit_type;
+
+      row.append(code, desc, badge);
+      row.onclick = () => select(it);
+      list.appendChild(row);
+    });
+  }
+
+  // KG-items: cantitatea este greutatea in kg, codificata cu (3103)
+  function setQtyMode(it) {
+    const kg = it.unit_type === 'kg';
+    $('qtyLabel').textContent = kg ? t('qtyKg') : t('qty');
+    $('qty').step = kg ? '0.001' : '1';
+    $('qty').min = kg ? '0.001' : '1';
+    $('qty').max = kg ? '999.999' : '99999999';
+  }
+
+  function select(it) {
+    current = it;
+    setQtyMode(it);
+    $('qty').value = '1';
+    $('selCode').textContent = it.item_code;
+    $('selGtin').textContent = it.gtin;
+    $('selDesc').textContent = it.description || it.item_code;
+    const badge = $('selType');
+    badge.className = 'badge ' + it.unit_type;
+    badge.textContent = it.unit_type;
+    $('sel').classList.add('show');
+    $('list').innerHTML = '';
+    $('q').value = '';
+    $('result').innerHTML = '';
+    $('print').hidden = true;
+    $('qty').focus();
+    $('sel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---------- Generare GS1-128 ----------
+  $('gen').onclick = () => {
+    if (!current) return;
+    const qty = $('qty').value.trim();
+    const result = $('result');
+    result.innerHTML = '';
+
+    let qtyAi;
+    if (current.unit_type === 'kg') {
+      const w = qty.replace(',', '.');
+      if (!/^\d{1,3}(\.\d{1,3})?$/.test(w) || Number(w) <= 0 || Number(w) > 999.999) {
+        result.innerHTML = `<div class="err-box">${t('weightInvalid')}</div>`;
+        return;
+      }
+      qtyAi = `(3103)${String(Math.round(Number(w) * 1000)).padStart(6, '0')}`;
+    } else {
+      if (!/^\d{1,8}$/.test(qty) || Number(qty) < 1) {
+        result.innerHTML = `<div class="err-box">${t('qtyInvalid')}</div>`;
+        return;
+      }
+      qtyAi = `(37)${qty}`;
+    }
+
+    const batch = $('batch').value.trim();
+    if (batch && !/^[A-Za-z0-9\-\/\.]{1,20}$/.test(batch)) {
+      result.innerHTML = `<div class="err-box">${t('batchInvalid')}</div>`;
+      return;
+    }
+    const bbd = $('bbd').value; // YYYY-MM-DD
+    const yymmdd = bbd ? bbd.slice(2, 4) + bbd.slice(5, 7) + bbd.slice(8, 10) : '';
+
+    let text = `(02)${current.gtin}${qtyAi}`;
+    if (batch) text += `(10)${batch}`;
+    if (yymmdd) text += `(15)${yymmdd}`;
+
+    const box = document.createElement('div');
+    box.className = 'label-preview printable';
+
+    const enc = document.createElement('div');
+    enc.className = 'enc';
+    enc.textContent = text;
+
+    const canvas = document.createElement('canvas');
+    try {
+      bwipjs.toCanvas(canvas, {
+        bcid: 'gs1-128',
+        text: text,
+        scale: 3,
+        height: 12,
+        includetext: true,
+        textxalign: 'center',
+      });
+      box.append(enc, canvas);
+      result.append(box);
+      $('print').hidden = false;
+    } catch (e) {
+      result.innerHTML = `<div class="err-box">${t('renderError', e.message)}</div>`;
+    }
+  };
+
+  // ---------- SSCC (AI 00) ----------
+  function genSscc() {
+    let body = String(1 + Math.floor(Math.random() * 9)); // extension digit 1-9
+    for (let i = 0; i < 16; i++) body += Math.floor(Math.random() * 10);
+    return body + gtinCheckDigit(body); // 17 cifre + cifra de control = 18
+  }
+
+  $('ssccGen').onclick = () => {
+    const sscc = genSscc();
+    $('sscc').value = sscc;
+    const out = $('ssccResult');
+    out.innerHTML = '';
+
+    const box = document.createElement('div');
+    box.className = 'label-preview printable';
+    const enc = document.createElement('div');
+    enc.className = 'enc';
+    enc.textContent = `(00)${sscc}`;
+    const canvas = document.createElement('canvas');
+    bwipjs.toCanvas(canvas, {
+      bcid: 'gs1-128',
+      text: `(00)${sscc}`,
+      scale: 3,
+      height: 12,
+      includetext: true,
+      textxalign: 'center',
+    });
+    box.append(enc, canvas);
+    out.append(box);
+    $('ssccPrint').hidden = false;
+  };
+
+  $('qty').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('gen').click(); });
+  $('q').oninput = search;
+
+  $('lang').onchange = (e) => {
+    lang = e.target.value;
+    localStorage.setItem('lang', lang);
+    applyLang();
+  };
+
+  // Încarcă automat baza de date încorporată
+  try {
+    items = parseCsv(EMBEDDED_CSV);
+    $('q').disabled = false;
+    $('empty').hidden = true;
+  } catch (err) {
+    showMsg(err.message);
+  }
+
+  applyLang();
+</script>
+</body>
+</html>
